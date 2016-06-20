@@ -6,7 +6,6 @@
 '*******************************************************************************
 Imports System
 Imports System.Threading
-'Imports System.Text.RegularExpressions
 Imports System.IO.Ports
 
 '#Const DBG_RX_IN = 1
@@ -298,7 +297,7 @@ Public Class can2usb
         TriggerEvent.WaitOne(New TimeSpan(0, 0, 1))
         If (sw.ElapsedMilliseconds > 100) Then
 #If DBG_ID_TRIGGER_TO Then
-                Console.WriteLine("WaitForCANMessageIDTrigger() - timeout")
+            Console.WriteLine("WaitForCANMessageIDTrigger(0x" & Hex(CANMessageIDTriggerID) & ") - timeout")
 #End If
             Interlocked.Increment(StatRXWaitForIDTimeouts)
             Return (False)
@@ -310,6 +309,42 @@ Public Class can2usb
             ' End SyncLock
             'End While
             Return (True)
+    End Function
+
+    '****************************************************************
+    '* Wait for CAN Message ID Trigger ID being in the buffer
+    '* returns true if num messages expected arrived
+    '* returns false if timeout happend while waiting for message num
+    '****************************************************************
+    Private Function WaitForCANMessageIDTrigger(ByVal Timeout As Integer) As Boolean
+        Dim sw As New Stopwatch
+        Dim b As Boolean
+
+        sw.Reset()
+        sw.Start()
+        'SyncLock (CANMessageIDTriggerInterlock)
+        '    b = CANMessageIDTriggerFlag
+        'End SyncLock
+        b = Interlocked.Read(CANMessageIDTriggerFlag)
+        'While (b = False)
+        ' wait / let other threads work
+        'System.Threading.Thread.Sleep(1)
+        'System.Threading.Thread.Yield()
+        TriggerEvent.WaitOne(New TimeSpan(0, 0, 1))
+        If (sw.ElapsedMilliseconds > Timeout) Then
+#If DBG_ID_TRIGGER_TO Then
+            Console.WriteLine("WaitForCANMessageIDTrigger(0x" & Hex(CANMessageIDTriggerID) & ") - timeout")
+#End If
+            Interlocked.Increment(StatRXWaitForIDTimeouts)
+            Return (False)
+        End If
+        ' fetch lock state for next round in while loop
+        b = Interlocked.Read(CANMessageIDTriggerFlag)
+        'SyncLock (CANMessageIDTriggerInterlock)
+        'b = CANMessageIDTriggerFlag
+        ' End SyncLock
+        'End While
+        Return (True)
     End Function
 
 
@@ -341,11 +376,11 @@ Public Class can2usb
             'System.Threading.Thread.Yield()                        
             If (sw.ElapsedMilliseconds > 100) Then
 #If DBG_ID_TRIGGER_TO Then
-                    Console.WriteLine("WaitForNumOfCANMessageIDTriggers() - timeout")
-#End If
-                Interlocked.Increment(StatRXWaitForIDTimeouts)
+                Console.WriteLine("WaitForNumOfCANMessageIDTriggers(0x" & Hex(CANMessageIDTriggerID) & ") - timeout")
                 Console.WriteLine(c & "/" & num)
                 Console.WriteLine("TIMEOUT")
+#End If
+                Interlocked.Increment(StatRXWaitForIDTimeouts)
                 Return (False)
             End If
 
@@ -496,33 +531,21 @@ Public Class can2usb
     End Sub
 
     '*****************************************************
-    '* Send CAN 0x80 request / DEBUG ONLY
-    '*****************************************************
-    Public Sub Burst()
-        If ComPort.IsOpen Then
-            If (ComPort.BytesToWrite = 0) Then
-                ResetCANMessages()
-                'ComPort.WriteTimeout = 100
-                ComPort.Write("$S,2,80,0,1" & vbCrLf)
-            End If
-        End If
-    End Sub
-
-    '*****************************************************
     '* Send CAN request (no waiting)
     '*****************************************************
     Public Function SendCANMessage(ByVal Request As CANMessage) As Boolean
         Dim r As Boolean = False
-        If ComPort.IsOpen Then
-            If (ComPort.BytesToWrite = 0) Then
-                'ComPort.ReadExisting()                
+
+        If (is_open) Then
+            If ComPort.IsOpen Then
                 Dim query As String = "$S," & Hex(Request.len) & "," & Hex(Request.id)
                 For i As Integer = 0 To Request.len - 1
                     query &= "," & Hex(Request.data(i))
                 Next
                 query &= vbCrLf
                 ComPort.Write(query)
-                'Console.WriteLine("SendCANMessage()" & query)                
+                'Console.WriteLine("SendCANMessage() = " & query)
+                r = True
             End If
         End If
         Return (r)
@@ -533,8 +556,35 @@ Public Class can2usb
     '*****************************************************
     Public Function SendAndWaitForCANMessageID(ByVal Request As CANMessage, ByVal CANTriggerID As Integer) As Boolean
         Dim r As Boolean = False
-        If ComPort.IsOpen Then
-            If (ComPort.BytesToWrite = 0) Then
+        If (is_open) Then
+            If ComPort.IsOpen Then
+                If (ComPort.BytesToWrite = 0) Then
+                    'ComPort.ReadExisting()
+                    ResetCANMessages()
+                    SetCANMessageIDTriggerID(CANTriggerID)
+                    ResetCANMessageIDTrigger()
+                    Dim query As String = "$S," & Hex(Request.len) & "," & Hex(Request.id)
+                    For i As Integer = 0 To Request.len - 1
+                        query &= "," & Hex(Request.data(i))
+                    Next
+                    query &= vbCrLf
+                    ComPort.Write(query)
+                    'Console.WriteLine("SendAndWaitForCANMessageID()" & query)
+                    r = WaitForCANMessageIDTrigger()
+                End If
+            End If
+        End If
+        Return (r)
+    End Function
+
+    '*****************************************************
+    '* Send CAN request and wait for reply (blocking)
+    '* Overload with Timeout parameter (in milliseconds)
+    '*****************************************************
+    Public Function SendAndWaitForCANMessageID(ByVal Request As CANMessage, ByVal CANTriggerID As Integer, ByVal Timeout As Integer) As Boolean
+        Dim r As Boolean = False
+        If (is_open) Then
+            If ComPort.IsOpen Then
                 'ComPort.ReadExisting()
                 ResetCANMessages()
                 SetCANMessageIDTriggerID(CANTriggerID)
@@ -545,8 +595,8 @@ Public Class can2usb
                 Next
                 query &= vbCrLf
                 ComPort.Write(query)
-                'Console.WriteLine("SendAndWaitForCANMessageID()" & query)
-                r = WaitForCANMessageIDTrigger()
+                'Console.WriteLine("SendAndWaitForCANMessageID() " & query)
+                r = WaitForCANMessageIDTrigger(Timeout)
             End If
         End If
         Return (r)
@@ -559,8 +609,8 @@ Public Class can2usb
     Public Function SendAndWaitForNumOfCANMessageIDs(ByVal Request As CANMessage, ByVal CANTriggerID As Integer, ByVal num As Integer) As Boolean
         Dim r As Boolean = False
 
-        If ComPort.IsOpen Then
-            If (ComPort.BytesToWrite = 0) Then
+        If (is_open) Then
+            If ComPort.IsOpen Then
                 'ComPort.ReadExisting()
                 ResetCANMessages()
                 SetCANMessageIDTriggerID(CANTriggerID)
@@ -752,7 +802,7 @@ Public Class can2usb
     '* Return adapter version
     '*****************************************************
     Public Function GetVersion() As String
-        Return ("blah")
+        Return ("can2usb-1.1")
     End Function
 
     '*****************************************************

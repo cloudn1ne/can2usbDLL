@@ -54,6 +54,7 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Deployment" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.Management" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Windows.Forms.DataVisualization" />
     <Reference Include="System.Xml" />
@@ -83,6 +84,15 @@
       <DependentUpon>Form1.vb</DependentUpon>
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Helpers\ECU.vb" />
+    <Compile Include="Helpers\ECUConnect.designer.vb">
+      <DependentUpon>ECUConnect.vb</DependentUpon>
+    </Compile>
+    <Compile Include="Helpers\ECUConnect.vb">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Helpers\GenericListItem.vb" />
+    <Compile Include="Helpers\T4eRegistry.vb" />
     <Compile Include="My Project\AssemblyInfo.vb" />
     <Compile Include="My Project\Application.Designer.vb">
       <AutoGen>True</AutoGen>
@@ -103,6 +113,9 @@
     <EmbeddedResource Include="Form1.resx">
       <DependentUpon>Form1.vb</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Helpers\ECUConnect.resx">
+      <DependentUpon>ECUConnect.vb</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="My Project\Resources.resx">
       <Generator>VbMyResourcesResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.vb</LastGenOutput>
@@ -121,6 +134,15 @@
       <LastGenOutput>Settings.Designer.vb</LastGenOutput>
     </None>
     <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\plug-connect-icon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\plug-disconnect-icon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\reload_icon.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

@@ -57,22 +57,23 @@ Partial Class Form1
         Me.CBCAN80 = New System.Windows.Forms.CheckBox()
         Me.BMemoryRead = New System.Windows.Forms.Button()
         Me.TimerQuery = New System.Windows.Forms.Timer(Me.components)
+        Me.BOBDRead = New System.Windows.Forms.Button()
         Me.GroupBox1.SuspendLayout()
         Me.GroupBox2.SuspendLayout()
         Me.SuspendLayout()
         '
         'TextBox1
         '
-        Me.TextBox1.Location = New System.Drawing.Point(12, 311)
+        Me.TextBox1.Location = New System.Drawing.Point(12, 242)
         Me.TextBox1.Multiline = True
         Me.TextBox1.Name = "TextBox1"
         Me.TextBox1.ScrollBars = System.Windows.Forms.ScrollBars.Vertical
-        Me.TextBox1.Size = New System.Drawing.Size(582, 108)
+        Me.TextBox1.Size = New System.Drawing.Size(582, 223)
         Me.TextBox1.TabIndex = 0
         '
         'Button1
         '
-        Me.Button1.Location = New System.Drawing.Point(519, 264)
+        Me.Button1.Location = New System.Drawing.Point(6, 19)
         Me.Button1.Name = "Button1"
         Me.Button1.Size = New System.Drawing.Size(75, 23)
         Me.Button1.TabIndex = 1
@@ -81,7 +82,7 @@ Partial Class Form1
         '
         'Button2
         '
-        Me.Button2.Location = New System.Drawing.Point(519, 230)
+        Me.Button2.Location = New System.Drawing.Point(87, 19)
         Me.Button2.Name = "Button2"
         Me.Button2.Size = New System.Drawing.Size(75, 23)
         Me.Button2.TabIndex = 2
@@ -90,7 +91,7 @@ Partial Class Form1
         '
         'Button3
         '
-        Me.Button3.Location = New System.Drawing.Point(519, 162)
+        Me.Button3.Location = New System.Drawing.Point(515, 213)
         Me.Button3.Name = "Button3"
         Me.Button3.Size = New System.Drawing.Size(75, 23)
         Me.Button3.TabIndex = 3
@@ -99,11 +100,11 @@ Partial Class Form1
         '
         'BBurst
         '
-        Me.BBurst.Location = New System.Drawing.Point(519, 124)
+        Me.BBurst.Location = New System.Drawing.Point(519, 106)
         Me.BBurst.Name = "BBurst"
         Me.BBurst.Size = New System.Drawing.Size(75, 23)
         Me.BBurst.TabIndex = 4
-        Me.BBurst.Text = "Burst"
+        Me.BBurst.Text = "Burst 0x80"
         Me.BBurst.UseVisualStyleBackColor = True
         '
         'TimerStats
@@ -131,16 +132,16 @@ Partial Class Form1
         Me.GroupBox1.Controls.Add(Me.Label3)
         Me.GroupBox1.Controls.Add(Me.Label2)
         Me.GroupBox1.Controls.Add(Me.Label1)
-        Me.GroupBox1.Location = New System.Drawing.Point(12, 124)
+        Me.GroupBox1.Location = New System.Drawing.Point(12, 106)
         Me.GroupBox1.Name = "GroupBox1"
-        Me.GroupBox1.Size = New System.Drawing.Size(437, 163)
+        Me.GroupBox1.Size = New System.Drawing.Size(437, 130)
         Me.GroupBox1.TabIndex = 9
         Me.GroupBox1.TabStop = False
         Me.GroupBox1.Text = "Counters"
         '
         'TBMemoryReadCounter
         '
-        Me.TBMemoryReadCounter.Location = New System.Drawing.Point(111, 126)
+        Me.TBMemoryReadCounter.Location = New System.Drawing.Point(325, 81)
         Me.TBMemoryReadCounter.Name = "TBMemoryReadCounter"
         Me.TBMemoryReadCounter.Size = New System.Drawing.Size(100, 20)
         Me.TBMemoryReadCounter.TabIndex = 16
@@ -148,7 +149,7 @@ Partial Class Form1
         'Label9
         '
         Me.Label9.AutoSize = True
-        Me.Label9.Location = New System.Drawing.Point(3, 129)
+        Me.Label9.Location = New System.Drawing.Point(217, 84)
         Me.Label9.Name = "Label9"
         Me.Label9.Size = New System.Drawing.Size(107, 13)
         Me.Label9.TabIndex = 15
@@ -289,13 +290,15 @@ Partial Class Form1
         Me.GroupBox2.Controls.Add(Me.SBPollInterval)
         Me.GroupBox2.Controls.Add(Me.CBTimerQuery)
         Me.GroupBox2.Controls.Add(Me.CBCAN50)
+        Me.GroupBox2.Controls.Add(Me.Button2)
         Me.GroupBox2.Controls.Add(Me.CBCAN80)
+        Me.GroupBox2.Controls.Add(Me.Button1)
         Me.GroupBox2.Location = New System.Drawing.Point(12, 12)
         Me.GroupBox2.Name = "GroupBox2"
-        Me.GroupBox2.Size = New System.Drawing.Size(582, 106)
+        Me.GroupBox2.Size = New System.Drawing.Size(582, 88)
         Me.GroupBox2.TabIndex = 10
         Me.GroupBox2.TabStop = False
-        Me.GroupBox2.Text = "Test Setup"
+        Me.GroupBox2.Text = "Setup"
         '
         'CBCANOBD
         '
@@ -358,32 +361,41 @@ Partial Class Form1
         '
         'BMemoryRead
         '
-        Me.BMemoryRead.Location = New System.Drawing.Point(482, 198)
+        Me.BMemoryRead.Location = New System.Drawing.Point(482, 135)
         Me.BMemoryRead.Name = "BMemoryRead"
         Me.BMemoryRead.Size = New System.Drawing.Size(112, 23)
         Me.BMemoryRead.TabIndex = 11
-        Me.BMemoryRead.Text = "Memory Read"
+        Me.BMemoryRead.Text = "Memory Read 0x50"
         Me.BMemoryRead.UseVisualStyleBackColor = True
         '
         'TimerQuery
         '
         Me.TimerQuery.Enabled = True
         '
+        'BOBDRead
+        '
+        Me.BOBDRead.Location = New System.Drawing.Point(482, 164)
+        Me.BOBDRead.Name = "BOBDRead"
+        Me.BOBDRead.Size = New System.Drawing.Size(112, 23)
+        Me.BOBDRead.TabIndex = 12
+        Me.BOBDRead.Text = "OBD Read"
+        Me.BOBDRead.UseVisualStyleBackColor = True
+        '
         'Form1
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
-        Me.ClientSize = New System.Drawing.Size(606, 426)
+        Me.ClientSize = New System.Drawing.Size(606, 477)
+        Me.Controls.Add(Me.BOBDRead)
         Me.Controls.Add(Me.BMemoryRead)
         Me.Controls.Add(Me.GroupBox2)
         Me.Controls.Add(Me.GroupBox1)
         Me.Controls.Add(Me.BBurst)
         Me.Controls.Add(Me.Button3)
-        Me.Controls.Add(Me.Button2)
-        Me.Controls.Add(Me.Button1)
         Me.Controls.Add(Me.TextBox1)
+        Me.MaximizeBox = False
         Me.Name = "Form1"
-        Me.Text = "Form1"
+        Me.Text = "can2usb Tester"
         Me.GroupBox1.ResumeLayout(False)
         Me.GroupBox1.PerformLayout()
         Me.GroupBox2.ResumeLayout(False)
@@ -427,4 +439,5 @@ Partial Class Form1
     Friend WithEvents LPollInterval As Label
     Friend WithEvents SBPollInterval As HScrollBar
     Friend WithEvents CBCANOBD As CheckBox
+    Friend WithEvents BOBDRead As Button
 End Class

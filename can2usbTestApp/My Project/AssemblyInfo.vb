@@ -9,8 +9,8 @@ Imports System.Runtime.InteropServices
 ' Review the values of the assembly attributes
 
 <Assembly: AssemblyTitle("can2usbTestApp")>
-<Assembly: AssemblyDescription("")>
-<Assembly: AssemblyCompany("Microsoft")>
+<Assembly: AssemblyDescription("Test Tool for can2usb")>
+<Assembly: AssemblyCompany("WARP")>
 <Assembly: AssemblyProduct("can2usbTestApp")>
 <Assembly: AssemblyCopyright("Copyright © Microsoft 2016")>
 <Assembly: AssemblyTrademark("")>
