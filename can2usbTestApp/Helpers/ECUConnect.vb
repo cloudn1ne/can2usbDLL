@@ -1,4 +1,8 @@
-﻿Imports System.Management
+﻿'*******************************************************************************
+'* connection handling and capability checks for ECU
+'* (c) Georg Swoboda 2016 <cn@warp.at>
+'*******************************************************************************
+Imports System.Management
 
 Public Class ECUConnect
 

@@ -1,4 +1,8 @@
-﻿Imports Microsoft.Win32
+﻿'*******************************************************************************
+'* registry functions/config
+'* (c) Georg Swoboda 2016 <cn@warp.at>
+'*******************************************************************************
+Imports Microsoft.Win32
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ''' Manage all registry keys for t4e ecu editor 
