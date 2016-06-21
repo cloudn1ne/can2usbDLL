@@ -1,7 +1,6 @@
 ﻿'*******************************************************************************
 '* testbed for can2usb 
-'*
-'*
+'* (c) Georg Swoboda 2016 <cn@warp.at>
 '*******************************************************************************
 Imports System.Windows.Forms.DataVisualization.Charting
 
@@ -53,6 +52,11 @@ Public Class Form1
             TBCANMessagesIdx.Text = "not connected"
             TBBurstCount.Text = "not connected"
             TBMemoryReadCounter.Text = "not connected"
+        End If
+
+        ' clear out textbox1 if it gets too large (so we can run it continously without crashing)
+        If (TextBox1.Text.Split(vbCrLf).Length > 250) Then
+            TextBox1.Text = ""  ' clear if we have more than 1000 lines in it
         End If
     End Sub
 
@@ -117,11 +121,32 @@ Public Class Form1
     Private Sub SimulateOBDRead()
         Dim b() As Byte
 
+        'PrintCANMessageBuffers()
         b = ECU.ECUQueryOBD(&H22, &H211)
+        'PrintCANMessageBuffers()
         If (b IsNot Nothing) Then
             TextBox1.Text &= System.Text.Encoding.ASCII.GetString(b) & vbCrLf
         Else
             TextBox1.Text &= "no reply to OBD query" & vbCrLf
+        End If
+    End Sub
+
+    '*****************************************************
+    '* Dump CANMessage Buffer
+    '*****************************************************
+    Private Sub PrintCANMessageBuffers()
+        Dim cb() As can2usbDLL.can2usb.CANMessage
+        cb = ECU.Adapter.GetCANMessagesBuffer
+
+        For i As Integer = 0 To cb.Length - 1
+            TextBox1.Text &= "(" & i & ") ID: 0x" & Hex(cb(i).id)
+            For j As Integer = 0 To cb(i).len - 1
+                TextBox1.Text &= " 0x" & Hex(cb(i).data(j))
+            Next
+            TextBox1.Text &= vbCrLf
+        Next
+        If (cb.Length = 0) Then
+            TextBox1.Text &= "<CANMessages empty>" & vbCrLf
         End If
     End Sub
 
@@ -135,13 +160,11 @@ Public Class Form1
         Next
     End Sub
 
-
-
     '*****************************************************
     '* Timer Event, based on selected tests do some action
     '*****************************************************
     Private Sub TimerQuery_Tick(sender As Object, e As EventArgs) Handles TimerQuery.Tick
-        If (CBTimerQuery.Checked) Then
+        If (CBTimerQuery.Checked And ECU.Adapter.isConnected) Then
             If (CBCAN50.Checked) Then
                 SimulateMemoryRead()
             End If

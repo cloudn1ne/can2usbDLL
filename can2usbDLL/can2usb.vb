@@ -1,8 +1,7 @@
 ﻿'*******************************************************************************
 '* can2usb dll for arduino/genuino + sparkfun/seedstudio shield
 '* version 1.0
-'*
-'*
+'* (c) Georg Swoboda 2016 <cn@warp.at>
 '*******************************************************************************
 Imports System
 Imports System.Threading
@@ -21,7 +20,7 @@ Public Class can2usb
     Private is_open As Boolean = False
     '   Public Shared recv_buffer As String = ""
 
-    Private buf(1) As Byte
+    Private buf() As Byte = New Byte() {}
     Private START_PATTERN() As Byte = System.Text.Encoding.ASCII.GetBytes("$F")
 
     ' Triggering
@@ -38,7 +37,7 @@ Public Class can2usb
 
     ' CAN Message handling
     Private CANMessagesIdx As Integer = 0
-    Private Shared CANMessages(256) As CANMessage
+    Private Shared CANMessages(64) As CANMessage
     Private CANMessagesOverrun As Boolean = True
     'Private CANMessageIDTriggerInterlock As New Object
     Private Shared CANMessageIDTriggerID As Integer
@@ -58,6 +57,14 @@ Public Class can2usb
         Dim data() As Byte
         Dim used As Boolean
     End Structure
+
+    '*****************************************************
+    '* Return number of bytes in buf()
+    '*****************************************************
+    Public Function GetByteBufferSize() As Integer
+        Return (buf.Length)
+    End Function
+
 
     '*****************************************************
     '* Return connection status
@@ -158,10 +165,11 @@ Public Class can2usb
     '*****************************************************
     Public Function GetCANMessagesBuffer() As CANMessage()
         Dim CANMessages_copy() As CANMessage = Nothing
+        Dim idx = Interlocked.Read(CANMessagesIdx)
 
+        Array.Resize(CANMessages_copy, idx)
         SyncLock (CANMessages)
-            Array.Resize(CANMessages_copy, Interlocked.Read(CANMessagesIdx))
-            Array.Copy(CANMessages, CANMessages_copy, Interlocked.Read(CANMessagesIdx))
+            Array.Copy(CANMessages, CANMessages_copy, idx)
         End SyncLock
         Return (CANMessages_copy)
     End Function
@@ -275,75 +283,50 @@ Public Class can2usb
         Interlocked.Exchange(CANMessageIDTriggerCounter, 0)
     End Sub
 
-    '****************************************************************
+    '******************************************************************
     '* Wait for CAN Message ID Trigger ID being in the buffer
-    '* returns true if num messages expected arrived
-    '* returns false if timeout happend while waiting for message num
-    '****************************************************************
+    '* returns true if triggered within timeout (100msec)
+    '* returns false if timeout happend while waiting for the right msg
+    '******************************************************************
     Private Function WaitForCANMessageIDTrigger() As Boolean
         Dim sw As New Stopwatch
         Dim b As Boolean
 
         sw.Reset()
         sw.Start()
-        'SyncLock (CANMessageIDTriggerInterlock)
-        '    b = CANMessageIDTriggerFlag
-        'End SyncLock
-        b = Interlocked.Read(CANMessageIDTriggerFlag)
-        'While (b = False)
-        ' wait / let other threads work
-        'System.Threading.Thread.Sleep(1)
-        'System.Threading.Thread.Yield()
-        TriggerEvent.WaitOne(New TimeSpan(0, 0, 1))
-        If (sw.ElapsedMilliseconds > 100) Then
+        While (Interlocked.Read(CANMessageIDTriggerFlag) = False)
+            TriggerEvent.WaitOne(New TimeSpan(0, 0, 1))
+            If (sw.ElapsedMilliseconds > 100) Then
 #If DBG_ID_TRIGGER_TO Then
-            Console.WriteLine("WaitForCANMessageIDTrigger(0x" & Hex(CANMessageIDTriggerID) & ") - timeout")
+                Console.WriteLine("WaitForCANMessageIDTrigger(0x" & Hex(CANMessageIDTriggerID) & ") - timeout")
 #End If
-            Interlocked.Increment(StatRXWaitForIDTimeouts)
-            Return (False)
-        End If
-        ' fetch lock state for next round in while loop
-        b = Interlocked.Read(CANMessageIDTriggerFlag)
-            'SyncLock (CANMessageIDTriggerInterlock)
-            'b = CANMessageIDTriggerFlag
-            ' End SyncLock
-            'End While
-            Return (True)
+                Interlocked.Increment(StatRXWaitForIDTimeouts)
+                Return (False)
+            End If
+        End While
+        Return (True)
     End Function
 
     '****************************************************************
     '* Wait for CAN Message ID Trigger ID being in the buffer
-    '* returns true if num messages expected arrived
-    '* returns false if timeout happend while waiting for message num
+    '* returns true if triggered within timeout (Timeout)
+    '* returns false if timeout happend while waiting for the right msg
     '****************************************************************
     Private Function WaitForCANMessageIDTrigger(ByVal Timeout As Integer) As Boolean
         Dim sw As New Stopwatch
-        Dim b As Boolean
 
         sw.Reset()
         sw.Start()
-        'SyncLock (CANMessageIDTriggerInterlock)
-        '    b = CANMessageIDTriggerFlag
-        'End SyncLock
-        b = Interlocked.Read(CANMessageIDTriggerFlag)
-        'While (b = False)
-        ' wait / let other threads work
-        'System.Threading.Thread.Sleep(1)
-        'System.Threading.Thread.Yield()
-        TriggerEvent.WaitOne(New TimeSpan(0, 0, 1))
-        If (sw.ElapsedMilliseconds > Timeout) Then
+        While (Interlocked.Read(CANMessageIDTriggerFlag) = False)
+            TriggerEvent.WaitOne(New TimeSpan(0, 0, 1))
+            If (sw.ElapsedMilliseconds > Timeout) Then
 #If DBG_ID_TRIGGER_TO Then
-            Console.WriteLine("WaitForCANMessageIDTrigger(0x" & Hex(CANMessageIDTriggerID) & ") - timeout")
+                Console.WriteLine("WaitForCANMessageIDTrigger(0x" & Hex(CANMessageIDTriggerID) & ") - timeout")
 #End If
-            Interlocked.Increment(StatRXWaitForIDTimeouts)
-            Return (False)
-        End If
-        ' fetch lock state for next round in while loop
-        b = Interlocked.Read(CANMessageIDTriggerFlag)
-        'SyncLock (CANMessageIDTriggerInterlock)
-        'b = CANMessageIDTriggerFlag
-        ' End SyncLock
-        'End While
+                Interlocked.Increment(StatRXWaitForIDTimeouts)
+                Return (False)
+            End If
+        End While
         Return (True)
     End Function
 
@@ -360,20 +343,7 @@ Public Class can2usb
 
         sw.Reset()
         sw.Start()
-        'SyncLock (CANMessageIDTriggerInterlock)
-        '    c = CANMessageIDTriggerCounter
-        'End SyncLock
-        c = Interlocked.Read(CANMessageIDTriggerCounter)
-        While (c < num)
-            ' wait for messages to arrive
-            'SyncLock (CANMessageIDTriggerInterlock)
-            '    b = CANMessageIDTriggerFlag
-            'End SyncLock
-            'b = Interlocked.Read(CANMessageIDTriggerFlag)
-            'While (b = False)
-            ' wait / let other threads work
-            'System.Threading.Thread.Sleep(1)
-            'System.Threading.Thread.Yield()                        
+        While (Interlocked.Read(CANMessageIDTriggerCounter) < num)
             If (sw.ElapsedMilliseconds > 100) Then
 #If DBG_ID_TRIGGER_TO Then
                 Console.WriteLine("WaitForNumOfCANMessageIDTriggers(0x" & Hex(CANMessageIDTriggerID) & ") - timeout")
@@ -383,18 +353,7 @@ Public Class can2usb
                 Interlocked.Increment(StatRXWaitForIDTimeouts)
                 Return (False)
             End If
-
             TriggerEvent.WaitOne(New TimeSpan(0, 0, 0, 0, 1))
-            ' fetch lock state for next round in while loop
-            'SyncLock (CANMessageIDTriggerInterlock)
-            ' b = CANMessageIDTriggerFlag
-            ' End SyncLock
-            '   b = Interlocked.Read(CANMessageIDTriggerFlag)
-            'End While
-            'SyncLock (CANMessageIDTriggerInterlock)
-            ' c = CANMessageIDTriggerCounter
-            ' End SyncLock
-            c = Interlocked.Read(CANMessageIDTriggerCounter)
         End While
         Return (True)
     End Function
@@ -412,7 +371,8 @@ Public Class can2usb
 
         If ComPort.IsOpen Then
             Try
-                Dim buf_len = buf.Length
+                Dim buf_len As Integer = buf.Length
+
                 Dim ser_len = ComPort.BytesToRead
 #If DBG_RX_IN Then
                 If (buf_len > 0) Then

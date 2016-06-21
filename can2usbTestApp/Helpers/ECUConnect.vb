@@ -120,7 +120,7 @@ Public Class ECUConnect
         ' Probe OBD 0x22, 0x211 - ECU Type 'T4E'
         ' only CAN ECUs can do that via CAN2USB if that fails assume KLINE_CAN    
         '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-        'b = Form1.ECU.ECUQueryOBD(&H22, &H211) ' we need a second call here, the first one gets ignored - fix later
+        b = Form1.ECU.ECUQueryOBD(&H22, &H211) ' we need a second call here, the first one gets ignored - fix later
         b = Form1.ECU.ECUQueryOBD(&H22, &H211)
         If (b Is Nothing) Then
             Console.WriteLine("ECUProbeLevels() - no reply to OBD, checking if its a KLINE ECU")

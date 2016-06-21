@@ -68,7 +68,7 @@ Partial Class Form1
         Me.TextBox1.Multiline = True
         Me.TextBox1.Name = "TextBox1"
         Me.TextBox1.ScrollBars = System.Windows.Forms.ScrollBars.Vertical
-        Me.TextBox1.Size = New System.Drawing.Size(582, 223)
+        Me.TextBox1.Size = New System.Drawing.Size(582, 292)
         Me.TextBox1.TabIndex = 0
         '
         'Button1
@@ -385,7 +385,7 @@ Partial Class Form1
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
-        Me.ClientSize = New System.Drawing.Size(606, 477)
+        Me.ClientSize = New System.Drawing.Size(606, 546)
         Me.Controls.Add(Me.BOBDRead)
         Me.Controls.Add(Me.BMemoryRead)
         Me.Controls.Add(Me.GroupBox2)

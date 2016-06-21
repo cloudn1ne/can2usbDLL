@@ -136,11 +136,10 @@ Public Class ECU
         ECU.Adapter.SendAndWaitForCANMessageID(cmsg, &H7E8, 1000)
         '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
         ' process reply
-        '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+        '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''        
+#If DBG_READOBD Then
         Dim cb() As can2usbDLL.can2usb.CANMessage
         cb = ECU.Adapter.GetCANMessagesBuffer
-
-#If DBG_READOBD Then
         For i As Integer = 0 To cb.Length - 1
             Console.WriteLine("OBD CAN buffer: " & Hex(cb(i).id))
             For j As Integer = 0 To cb(i).len - 1
@@ -149,7 +148,7 @@ Public Class ECU
         Next
 #End If
 
-            cmsg = ECU.Adapter.GetFirstCANMessageBufferByID(&H7E8)
+        cmsg = ECU.Adapter.GetFirstCANMessageBufferByID(&H7E8)
         If (cmsg.used = 0) Then
             Return (Nothing)
         End If
