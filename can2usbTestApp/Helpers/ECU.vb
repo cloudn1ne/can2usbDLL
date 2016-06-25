@@ -3,7 +3,6 @@
 '* (c) Georg Swoboda 2016 <cn@warp.at>
 '*******************************************************************************
 
-
 '#Const DBG_READMEMORY = 1
 '#Const DBG_READOBD = 1
 

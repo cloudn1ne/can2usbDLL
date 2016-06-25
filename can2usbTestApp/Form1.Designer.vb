@@ -58,6 +58,7 @@ Partial Class Form1
         Me.BMemoryRead = New System.Windows.Forms.Button()
         Me.TimerQuery = New System.Windows.Forms.Timer(Me.components)
         Me.BOBDRead = New System.Windows.Forms.Button()
+        Me.BDownloadCalibration = New System.Windows.Forms.Button()
         Me.GroupBox1.SuspendLayout()
         Me.GroupBox2.SuspendLayout()
         Me.SuspendLayout()
@@ -285,6 +286,7 @@ Partial Class Form1
         '
         'GroupBox2
         '
+        Me.GroupBox2.Controls.Add(Me.BDownloadCalibration)
         Me.GroupBox2.Controls.Add(Me.CBCANOBD)
         Me.GroupBox2.Controls.Add(Me.LPollInterval)
         Me.GroupBox2.Controls.Add(Me.SBPollInterval)
@@ -381,6 +383,15 @@ Partial Class Form1
         Me.BOBDRead.Text = "OBD Read"
         Me.BOBDRead.UseVisualStyleBackColor = True
         '
+        'BDownloadCalibration
+        '
+        Me.BDownloadCalibration.Location = New System.Drawing.Point(6, 61)
+        Me.BDownloadCalibration.Name = "BDownloadCalibration"
+        Me.BDownloadCalibration.Size = New System.Drawing.Size(156, 23)
+        Me.BDownloadCalibration.TabIndex = 6
+        Me.BDownloadCalibration.Text = "Download Calibration"
+        Me.BDownloadCalibration.UseVisualStyleBackColor = True
+        '
         'Form1
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
@@ -440,4 +451,5 @@ Partial Class Form1
     Friend WithEvents SBPollInterval As HScrollBar
     Friend WithEvents CBCANOBD As CheckBox
     Friend WithEvents BOBDRead As Button
+    Friend WithEvents BDownloadCalibration As Button
 End Class

@@ -2,12 +2,16 @@
 '* testbed for can2usb 
 '* (c) Georg Swoboda 2016 <cn@warp.at>
 '*******************************************************************************
-Imports System.Windows.Forms.DataVisualization.Charting
+'Imports System.Windows.Forms.DataVisualization.Charting
+Imports System.IO
+Imports System.Security
+Imports System.Security.Cryptography
 
 Public Class Form1
     'Dim adapter As New can2usbDLL.can2usb
     Dim burstcounter As Integer = 0
     Dim memoryreadcounter As Integer = 0
+    Dim binpath As String = Application.StartupPath
     ' hooks for ECU connection, and registry
     Public Shared T4eReg As New T4eRegistry
     Public Shared ECU As New ECU
@@ -154,9 +158,9 @@ Public Class Form1
         Dim cb() As can2usbDLL.can2usb.CANMessage
         cb = ECU.Adapter.GetCANMessagesBuffer()
         For i = 0 To cb.Length - 1
-            If (cb(i).id = id) Then
-                TextBox1.Text &= addr & " = " & Hex(cb(i).id) & vbCrLf
-            End If
+            '            If (cb(i).id = id) Then
+            TextBox1.Text &= addr & " = " & Hex(cb(i).id) & vbCrLf
+            '           End If
         Next
     End Sub
 
@@ -186,4 +190,77 @@ Public Class Form1
     Private Sub BOBDRead_Click(sender As Object, e As EventArgs) Handles BOBDRead.Click
         SimulateOBDRead()
     End Sub
+
+
+    Private Sub BDownloadCalibration_Click(sender As Object, e As EventArgs) Handles BDownloadCalibration.Click
+        Dim d_bootldr As New Downloader(&H0, &H10000)
+        If (d_bootldr.ShowDialog() = DialogResult.Abort) Then
+            d_bootldr.Dispose()
+            Exit Sub
+        End If
+        SaveBINFile(binpath & "\bootldr.bin", d_bootldr.bytes)
+
+        '        Exit Sub
+
+        Dim d_calrom As New Downloader(&H10000, &H10000)
+        If (d_calrom.ShowDialog() = DialogResult.Abort) Then
+            d_calrom.Dispose()
+            Exit Sub
+        End If
+        SaveBINFile(binpath & "\calrom.bin", d_calrom.bytes)
+
+        Dim d_prog As New Downloader(&H20000, &H60000)
+        If (d_prog.ShowDialog() = DialogResult.Abort) Then
+            d_prog.Dispose()
+            Exit Sub
+        End If
+        SaveBINFile(binpath & "\prog.bin", d_prog.bytes)
+
+        Dim d_decram As New Downloader(&H2F8000, &H800)
+        If (d_decram.ShowDialog() = DialogResult.Abort) Then
+            d_decram.Dispose()
+            Exit Sub
+        End If
+        SaveBINFile(binpath & "\decram.bin", d_decram.bytes)
+
+        ' download 0x10000 bytes from CALRAM (0x3f8000) - these are the bytes used for the maps
+        Dim d_calram As New Downloader(&H3F8000, &H8000)
+        If (d_calram.ShowDialog() = DialogResult.Abort) Then
+            d_calram.Dispose()
+            Exit Sub
+        End If
+        SaveBINFile(binpath & "\calram.bin", d_calram.bytes)
+    End Sub
+
+    Public Function SaveBINFile(ByVal strFilename As String, ByVal bytesToWrite() As Byte) As Boolean
+        Dim hash = SHA1.Create
+        Dim hashvalue() As Byte
+
+        Using fsNew As FileStream = New FileStream(strFilename, FileMode.Create, FileAccess.Write)
+            TextBox1.Text &= "Writing " & strFilename & "(0x" & Hex(bytesToWrite.Length) & ")" & vbCrLf
+            fsNew.Write(bytesToWrite, 0, bytesToWrite.Length)
+            fsNew.Close()
+            Dim fsHash As FileStream = File.OpenRead(strFilename)
+            fsHash.Position = 0
+            hashvalue = hash.ComputeHash(fsHash)
+            fsHash.Close()
+            Dim hash_hex = PrintByteArray(hashvalue)
+            TextBox1.Text &= "sha1sum: " & hash_hex & vbCrLf
+        End Using
+        Return True
+    End Function
+
+    Public Function PrintByteArray(ByVal array() As Byte)
+        Dim hex_value As String = ""
+        ' We traverse the array of bytes
+        Dim i As Integer
+        For i = 0 To array.Length - 1
+
+            ' We convert each byte in hexadecimal
+            hex_value += array(i).ToString("X2")
+
+        Next i
+        ' We return the string in lowercase
+        Return hex_value.ToLower
+    End Function
 End Class
