@@ -311,7 +311,7 @@ Partial Class Form1
         Me.BDownloadCalibration.Name = "BDownloadCalibration"
         Me.BDownloadCalibration.Size = New System.Drawing.Size(156, 23)
         Me.BDownloadCalibration.TabIndex = 6
-        Me.BDownloadCalibration.Text = "Download Calibration"
+        Me.BDownloadCalibration.Text = "Download ECU"
         Me.BDownloadCalibration.UseVisualStyleBackColor = True
         '
         'CBCANOBD
