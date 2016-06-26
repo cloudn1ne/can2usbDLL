@@ -36,6 +36,7 @@ Public Class can2usb
     Private StatRXWaitForIDTimeouts As Integer = 0
 
     ' CAN Message handling
+    Public ReadOnly MaxCANMessageBufferSize As Integer = 64
     Private CANMessagesIdx As Integer = 0
     Private Shared CANMessages(64) As CANMessage
     Private CANMessagesOverrun As Boolean = True
@@ -129,7 +130,7 @@ Public Class can2usb
     '*****************************************************
     '* Reset CANMessages buffer handling 
     '*****************************************************
-    Private Sub ResetCANMessages()
+    Public Sub ResetCANMessages()
         SyncLock (CANMessages)
             For i As Integer = 0 To CANMessages.Length - 1
                 CANMessages(i).used = False
@@ -538,6 +539,28 @@ Public Class can2usb
     End Function
 
     '*****************************************************
+    '* Wait for CAN ID to be received (blocking)
+    '*****************************************************
+    Public Function WaitForCANMessageID(ByVal CANTriggerID As Integer, ByVal DoReset As Boolean) As Boolean
+        Dim r As Boolean = False
+        If (is_open) Then
+            If ComPort.IsOpen Then
+                If (ComPort.BytesToWrite = 0) Then
+                    'ComPort.ReadExisting()
+                    If (DoReset) Then
+                        ResetCANMessages()
+                        SetCANMessageIDTriggerID(CANTriggerID)
+                        ResetCANMessageIDTrigger()
+                    End If
+                    'Console.WriteLine("WaitForCANMessageID()" & query)
+                    r = WaitForCANMessageIDTrigger()
+                    End If
+                End If
+        End If
+        Return (r)
+    End Function
+
+    '*****************************************************
     '* Send CAN request and wait for reply (blocking)
     '* Overload with Timeout parameter (in milliseconds)
     '*****************************************************
@@ -591,7 +614,7 @@ Public Class can2usb
     '* Extract received $F CAN message and store into
     '* CANMessage structure element
     '*****************************************************
-    Public Function ExtactCANMessage(ByRef Bytes() As Byte, ByVal start As Integer) As CANMessage
+    Private Function ExtactCANMessage(ByRef Bytes() As Byte, ByVal start As Integer) As CANMessage
         Dim cmsg As New CANMessage
         Dim i As Short
         Dim crc As Integer = 0

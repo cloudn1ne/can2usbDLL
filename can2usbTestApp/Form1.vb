@@ -22,6 +22,7 @@ Public Class Form1
 
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
         ECU.Adapter.Disconnect()
+        UpdateControls()
     End Sub
 
     ' clear textbox
@@ -65,14 +66,51 @@ Public Class Form1
     End Sub
 
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        LblCopyright.Text = "V " & Application.ProductVersion & " (c) cn@warp.at, 2016"
         If (T4eReg.GetECUAutoConnect) Then
             If (Not ECU.Adapter.isConnected) Then
                 ECUConnect.ConnectToECU(T4eReg.GetECUComPort, T4eReg.GetECUCANSpeed, T4eReg.GetECUCANShieldType)
+                UpdateControls()
             End If
         End If
         LPollInterval.Text = SBPollInterval.Value & " ms"
     End Sub
 
+
+    '*****************************************************
+    '* Update available controls based on ECU capabilities
+    '*****************************************************
+    Public Sub UpdateControls()
+        If (ECU.Adapter.isConnected) Then
+            If (ECU.AccessLevel = ECU.ECUAccessLevel.KLINE_CAN) Then ' KLINE/CAN ECU (no OBD possible without KLINE adapter)
+                CBCAN50.Enabled = True
+                CBCAN80.Enabled = True
+                CBCANOBD.Enabled = False
+                CBTimerQuery.Enabled = True
+            ElseIf (ECU.AccessLevel = ECU.ECUAccessLevel.CANOnlyLocked) Then '  CANOnly locked ECU (no memory reading possible)
+                CBCAN50.Enabled = False
+                CBCAN80.Enabled = True
+                CBCANOBD.Enabled = True
+                CBTimerQuery.Enabled = True
+            ElseIf (ECU.AccessLevel = ECU.ECUAccessLevel.CANOnlyUnlocked) Then '  CANOnly unlocked ECU
+                CBCAN50.Enabled = True
+                CBCAN80.Enabled = True
+                CBCANOBD.Enabled = True
+                CBTimerQuery.Enabled = True
+            Else ' unknown ECU capabilities
+                CBCAN50.Enabled = False
+                CBCAN80.Enabled = False
+                CBCANOBD.Enabled = False
+                CBTimerQuery.Enabled = False
+            End If
+        Else
+            ' ECU not connected
+            CBCAN50.Enabled = False
+            CBCAN80.Enabled = False
+            CBCANOBD.Enabled = False
+            CBTimerQuery.Enabled = False
+        End If
+    End Sub
     Private Sub BMemoryRead_Click(sender As Object, e As EventArgs) Handles BMemoryRead.Click
         SimulateMemoryRead()
     End Sub
@@ -193,43 +231,52 @@ Public Class Form1
 
 
     Private Sub BDownloadCalibration_Click(sender As Object, e As EventArgs) Handles BDownloadCalibration.Click
-        Dim d_bootldr As New Downloader(&H0, &H10000)
-        If (d_bootldr.ShowDialog() = DialogResult.Abort) Then
-            d_bootldr.Dispose()
-            Exit Sub
-        End If
-        SaveBINFile(binpath & "\bootldr.bin", d_bootldr.bytes)
+        FolderBrowserDialog_download.RootFolder = Environment.SpecialFolder.MyDocuments
+        FolderBrowserDialog_download.Description = "Select directory to dump ECU download"
+        If FolderBrowserDialog_download.ShowDialog() = Windows.Forms.DialogResult.OK Then
+            Dim binpath = FolderBrowserDialog_download.SelectedPath
+            Dim d_bootldr As New Downloader(&H0, &H10000)
+            If (d_bootldr.ShowDialog() = DialogResult.Abort) Then
+                d_bootldr.Dispose()
+                MessageBox.Show("Error while downloading Bootloader (0x0-0xFFFF)", "Download Error", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
+                Exit Sub
+            End If
+            SaveBINFile(binpath & "\bootldr.bin", d_bootldr.bytes)
 
-        '        Exit Sub
+            Dim d_calrom As New Downloader(&H10000, &H10000)
+            If (d_calrom.ShowDialog() = DialogResult.Abort) Then
+                d_calrom.Dispose()
+                MessageBox.Show("Error while downloading CALROM (0x10000-0x1FFFF)", "Download Error", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
+                Exit Sub
+            End If
+            SaveBINFile(binpath & "\calrom.bin", d_calrom.bytes)
 
-        Dim d_calrom As New Downloader(&H10000, &H10000)
-        If (d_calrom.ShowDialog() = DialogResult.Abort) Then
-            d_calrom.Dispose()
-            Exit Sub
-        End If
-        SaveBINFile(binpath & "\calrom.bin", d_calrom.bytes)
+            Dim d_prog As New Downloader(&H20000, &H60000)
+            If (d_prog.ShowDialog() = DialogResult.Abort) Then
+                d_prog.Dispose()
+                MessageBox.Show("Error while downloading PROGRAM (0x20000-0x7FFFF)", "Download Error", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
+                Exit Sub
+            End If
+            SaveBINFile(binpath & "\prog.bin", d_prog.bytes)
 
-        Dim d_prog As New Downloader(&H20000, &H60000)
-        If (d_prog.ShowDialog() = DialogResult.Abort) Then
-            d_prog.Dispose()
-            Exit Sub
-        End If
-        SaveBINFile(binpath & "\prog.bin", d_prog.bytes)
+            Dim d_decram As New Downloader(&H2F8000, &H800)
+            If (d_decram.ShowDialog() = DialogResult.Abort) Then
+                d_decram.Dispose()
+                MessageBox.Show("Error while downloading DECRAM (0x2F8000-0x2F87FF)", "Download Error", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
+                Exit Sub
+            End If
 
-        Dim d_decram As New Downloader(&H2F8000, &H800)
-        If (d_decram.ShowDialog() = DialogResult.Abort) Then
-            d_decram.Dispose()
-            Exit Sub
-        End If
-        SaveBINFile(binpath & "\decram.bin", d_decram.bytes)
+            SaveBINFile(binpath & "\decram.bin", d_decram.bytes)
 
-        ' download 0x10000 bytes from CALRAM (0x3f8000) - these are the bytes used for the maps
-        Dim d_calram As New Downloader(&H3F8000, &H8000)
-        If (d_calram.ShowDialog() = DialogResult.Abort) Then
-            d_calram.Dispose()
-            Exit Sub
+            ' download 0x10000 bytes from CALRAM (0x3f8000) - these are the bytes used for the maps when the ECU is running (live mode)
+            Dim d_calram As New Downloader(&H3F8000, &H8000)
+            If (d_calram.ShowDialog() = DialogResult.Abort) Then
+                d_calram.Dispose()
+                MessageBox.Show("Error while downloading DECRAM (0x3F8000-0x3FFFFF)", "Download Error", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
+                Exit Sub
+            End If
+            SaveBINFile(binpath & "\calram.bin", d_calram.bytes)
         End If
-        SaveBINFile(binpath & "\calram.bin", d_calram.bytes)
     End Sub
 
     Public Function SaveBINFile(ByVal strFilename As String, ByVal bytesToWrite() As Byte) As Boolean
@@ -263,4 +310,6 @@ Public Class Form1
         ' We return the string in lowercase
         Return hex_value.ToLower
     End Function
+
+
 End Class

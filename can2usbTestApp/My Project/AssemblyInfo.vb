@@ -8,7 +8,7 @@ Imports System.Runtime.InteropServices
 
 ' Review the values of the assembly attributes
 
-<Assembly: AssemblyTitle("can2usbTestApp")>
+<Assembly: AssemblyTitle("can2usbTester")>
 <Assembly: AssemblyDescription("Test Tool for can2usb")>
 <Assembly: AssemblyCompany("WARP")>
 <Assembly: AssemblyProduct("can2usbTestApp")>

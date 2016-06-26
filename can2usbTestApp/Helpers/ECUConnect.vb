@@ -43,6 +43,7 @@ Public Class ECUConnect
         If Me.ComPortName <> "" Then
             ConnectToECU(Me.ComPortName, CANSpeed, CANShieldType)
             ReadCalibrationDetail()
+            Form1.UpdateControls()
             'DisconnectFromECU()
         End If
     End Sub
@@ -67,7 +68,7 @@ Public Class ECUConnect
     ' close serial port, reset adapter version, and access level
     '
     Public Sub DisconnectFromECU()
-        ECU.Adapter.Disconnect()        
+        ECU.Adapter.Disconnect()
     End Sub
 
     '
@@ -181,7 +182,7 @@ Public Class ECUConnect
         LblCalibrationDetail.Text = ""
         ToolTip.SetToolTip(Me.RBSpeed500K, "500kBit CAN, used for MY08 and later T4e ECU's which only support CAN")
         ToolTip.SetToolTip(Me.RBSpeed1M, "1MBit CAN, used for MY07 and earlier T4e ECU's which also support K-LINE")
-        ToolTip.SetToolTip(Me.BComportListReload, "re-enumerate all available COM Ports")                
+        ToolTip.SetToolTip(Me.BComportListReload, "re-enumerate all available COM Ports")
     End Sub
 
     '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -271,7 +272,7 @@ Public Class ECUConnect
     End Sub
 
     Private Sub RBSpeed1M_CheckedChanged(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles RBSpeed1M.CheckedChanged
-        CANSpeed = 1000        
+        CANSpeed = 1000
     End Sub
 
     Private Sub RBSpeed500K_CheckedChanged(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles RBSpeed500K.CheckedChanged
@@ -309,7 +310,6 @@ Public Class ECUConnect
     Private Sub CBReset_CheckedChanged(sender As Object, e As EventArgs) Handles CBReset.CheckedChanged
         CANReset = CBReset.Checked
     End Sub
-
 
 End Class
 

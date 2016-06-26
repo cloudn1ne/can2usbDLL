@@ -4,9 +4,6 @@
 '*******************************************************************************
 Imports Microsoft.Win32
 
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-''' Manage all registry keys for t4e ecu editor 
-''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Public Class T4eRegistry
     Private T4eRegistryPath As String = "SOFTWARE\" & Application.CompanyName & "\" & Application.ProductName
     Private T4eRegistryKey As RegistryKey
@@ -50,7 +47,7 @@ Public Class T4eRegistry
         Return (setting)
     End Function
 
-    Public Sub SetECUAutoConnect(ByVal setting As Boolean)        
+    Public Sub SetECUAutoConnect(ByVal setting As Boolean)
         Using Key As RegistryKey = My.Computer.Registry.CurrentUser.OpenSubKey(T4eRegistryPath, True)
             Key.SetValue("ECUAutoConnect", setting)
         End Using
@@ -64,7 +61,7 @@ Public Class T4eRegistry
         Return (setting)
     End Function
 
-    Public Sub SetECUCANSpeed(ByVal setting As Integer)        
+    Public Sub SetECUCANSpeed(ByVal setting As Integer)
         Using Key As RegistryKey = My.Computer.Registry.CurrentUser.OpenSubKey(T4eRegistryPath, True)
             Key.SetValue("ECUCANSpeed", setting)
         End Using

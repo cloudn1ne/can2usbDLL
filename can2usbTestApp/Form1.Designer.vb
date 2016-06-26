@@ -1,9 +1,9 @@
-﻿<Global.Microsoft.VisualBasic.CompilerServices.DesignerGenerated()> _
+﻿<Global.Microsoft.VisualBasic.CompilerServices.DesignerGenerated()>
 Partial Class Form1
     Inherits System.Windows.Forms.Form
 
     'Form overrides dispose to clean up the component list.
-    <System.Diagnostics.DebuggerNonUserCode()> _
+    <System.Diagnostics.DebuggerNonUserCode()>
     Protected Overrides Sub Dispose(ByVal disposing As Boolean)
         Try
             If disposing AndAlso components IsNot Nothing Then
@@ -20,9 +20,10 @@ Partial Class Form1
     'NOTE: The following procedure is required by the Windows Form Designer
     'It can be modified using the Windows Form Designer.  
     'Do not modify it using the code editor.
-    <System.Diagnostics.DebuggerStepThrough()> _
+    <System.Diagnostics.DebuggerStepThrough()>
     Private Sub InitializeComponent()
         Me.components = New System.ComponentModel.Container()
+        Dim resources As System.ComponentModel.ComponentResourceManager = New System.ComponentModel.ComponentResourceManager(GetType(Form1))
         Me.TextBox1 = New System.Windows.Forms.TextBox()
         Me.Button1 = New System.Windows.Forms.Button()
         Me.Button2 = New System.Windows.Forms.Button()
@@ -49,6 +50,7 @@ Partial Class Form1
         Me.Label2 = New System.Windows.Forms.Label()
         Me.Label1 = New System.Windows.Forms.Label()
         Me.GroupBox2 = New System.Windows.Forms.GroupBox()
+        Me.BDownloadCalibration = New System.Windows.Forms.Button()
         Me.CBCANOBD = New System.Windows.Forms.CheckBox()
         Me.LPollInterval = New System.Windows.Forms.Label()
         Me.SBPollInterval = New System.Windows.Forms.HScrollBar()
@@ -58,18 +60,19 @@ Partial Class Form1
         Me.BMemoryRead = New System.Windows.Forms.Button()
         Me.TimerQuery = New System.Windows.Forms.Timer(Me.components)
         Me.BOBDRead = New System.Windows.Forms.Button()
-        Me.BDownloadCalibration = New System.Windows.Forms.Button()
+        Me.FolderBrowserDialog_download = New System.Windows.Forms.FolderBrowserDialog()
+        Me.LblCopyright = New System.Windows.Forms.Label()
         Me.GroupBox1.SuspendLayout()
         Me.GroupBox2.SuspendLayout()
         Me.SuspendLayout()
         '
         'TextBox1
         '
-        Me.TextBox1.Location = New System.Drawing.Point(12, 242)
+        Me.TextBox1.Location = New System.Drawing.Point(12, 257)
         Me.TextBox1.Multiline = True
         Me.TextBox1.Name = "TextBox1"
         Me.TextBox1.ScrollBars = System.Windows.Forms.ScrollBars.Vertical
-        Me.TextBox1.Size = New System.Drawing.Size(582, 292)
+        Me.TextBox1.Size = New System.Drawing.Size(582, 213)
         Me.TextBox1.TabIndex = 0
         '
         'Button1
@@ -92,7 +95,7 @@ Partial Class Form1
         '
         'Button3
         '
-        Me.Button3.Location = New System.Drawing.Point(515, 213)
+        Me.Button3.Location = New System.Drawing.Point(518, 222)
         Me.Button3.Name = "Button3"
         Me.Button3.Size = New System.Drawing.Size(75, 23)
         Me.Button3.TabIndex = 3
@@ -101,7 +104,7 @@ Partial Class Form1
         '
         'BBurst
         '
-        Me.BBurst.Location = New System.Drawing.Point(519, 106)
+        Me.BBurst.Location = New System.Drawing.Point(519, 131)
         Me.BBurst.Name = "BBurst"
         Me.BBurst.Size = New System.Drawing.Size(75, 23)
         Me.BBurst.TabIndex = 4
@@ -133,7 +136,7 @@ Partial Class Form1
         Me.GroupBox1.Controls.Add(Me.Label3)
         Me.GroupBox1.Controls.Add(Me.Label2)
         Me.GroupBox1.Controls.Add(Me.Label1)
-        Me.GroupBox1.Location = New System.Drawing.Point(12, 106)
+        Me.GroupBox1.Location = New System.Drawing.Point(11, 121)
         Me.GroupBox1.Name = "GroupBox1"
         Me.GroupBox1.Size = New System.Drawing.Size(437, 130)
         Me.GroupBox1.TabIndex = 9
@@ -295,16 +298,26 @@ Partial Class Form1
         Me.GroupBox2.Controls.Add(Me.Button2)
         Me.GroupBox2.Controls.Add(Me.CBCAN80)
         Me.GroupBox2.Controls.Add(Me.Button1)
-        Me.GroupBox2.Location = New System.Drawing.Point(12, 12)
+        Me.GroupBox2.Location = New System.Drawing.Point(11, 27)
         Me.GroupBox2.Name = "GroupBox2"
         Me.GroupBox2.Size = New System.Drawing.Size(582, 88)
         Me.GroupBox2.TabIndex = 10
         Me.GroupBox2.TabStop = False
         Me.GroupBox2.Text = "Setup"
         '
+        'BDownloadCalibration
+        '
+        Me.BDownloadCalibration.Location = New System.Drawing.Point(6, 61)
+        Me.BDownloadCalibration.Name = "BDownloadCalibration"
+        Me.BDownloadCalibration.Size = New System.Drawing.Size(156, 23)
+        Me.BDownloadCalibration.TabIndex = 6
+        Me.BDownloadCalibration.Text = "Download Calibration"
+        Me.BDownloadCalibration.UseVisualStyleBackColor = True
+        '
         'CBCANOBD
         '
         Me.CBCANOBD.AutoSize = True
+        Me.CBCANOBD.Enabled = False
         Me.CBCANOBD.Location = New System.Drawing.Point(469, 65)
         Me.CBCANOBD.Name = "CBCANOBD"
         Me.CBCANOBD.Size = New System.Drawing.Size(109, 17)
@@ -334,6 +347,7 @@ Partial Class Form1
         'CBTimerQuery
         '
         Me.CBTimerQuery.AutoSize = True
+        Me.CBTimerQuery.Enabled = False
         Me.CBTimerQuery.Location = New System.Drawing.Point(336, 62)
         Me.CBTimerQuery.Name = "CBTimerQuery"
         Me.CBTimerQuery.Size = New System.Drawing.Size(90, 17)
@@ -344,6 +358,7 @@ Partial Class Form1
         'CBCAN50
         '
         Me.CBCAN50.AutoSize = True
+        Me.CBCAN50.Enabled = False
         Me.CBCAN50.Location = New System.Drawing.Point(469, 42)
         Me.CBCAN50.Name = "CBCAN50"
         Me.CBCAN50.Size = New System.Drawing.Size(109, 17)
@@ -354,6 +369,7 @@ Partial Class Form1
         'CBCAN80
         '
         Me.CBCAN80.AutoSize = True
+        Me.CBCAN80.Enabled = False
         Me.CBCAN80.Location = New System.Drawing.Point(469, 19)
         Me.CBCAN80.Name = "CBCAN80"
         Me.CBCAN80.Size = New System.Drawing.Size(107, 17)
@@ -363,7 +379,7 @@ Partial Class Form1
         '
         'BMemoryRead
         '
-        Me.BMemoryRead.Location = New System.Drawing.Point(482, 135)
+        Me.BMemoryRead.Location = New System.Drawing.Point(481, 160)
         Me.BMemoryRead.Name = "BMemoryRead"
         Me.BMemoryRead.Size = New System.Drawing.Size(112, 23)
         Me.BMemoryRead.TabIndex = 11
@@ -376,27 +392,27 @@ Partial Class Form1
         '
         'BOBDRead
         '
-        Me.BOBDRead.Location = New System.Drawing.Point(482, 164)
+        Me.BOBDRead.Location = New System.Drawing.Point(482, 189)
         Me.BOBDRead.Name = "BOBDRead"
         Me.BOBDRead.Size = New System.Drawing.Size(112, 23)
         Me.BOBDRead.TabIndex = 12
         Me.BOBDRead.Text = "OBD Read"
         Me.BOBDRead.UseVisualStyleBackColor = True
         '
-        'BDownloadCalibration
+        'LblCopyright
         '
-        Me.BDownloadCalibration.Location = New System.Drawing.Point(6, 61)
-        Me.BDownloadCalibration.Name = "BDownloadCalibration"
-        Me.BDownloadCalibration.Size = New System.Drawing.Size(156, 23)
-        Me.BDownloadCalibration.TabIndex = 6
-        Me.BDownloadCalibration.Text = "Download Calibration"
-        Me.BDownloadCalibration.UseVisualStyleBackColor = True
+        Me.LblCopyright.AutoSize = True
+        Me.LblCopyright.Location = New System.Drawing.Point(408, 11)
+        Me.LblCopyright.Name = "LblCopyright"
+        Me.LblCopyright.Size = New System.Drawing.Size(0, 13)
+        Me.LblCopyright.TabIndex = 13
         '
         'Form1
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
-        Me.ClientSize = New System.Drawing.Size(606, 546)
+        Me.ClientSize = New System.Drawing.Size(606, 481)
+        Me.Controls.Add(Me.LblCopyright)
         Me.Controls.Add(Me.BOBDRead)
         Me.Controls.Add(Me.BMemoryRead)
         Me.Controls.Add(Me.GroupBox2)
@@ -404,9 +420,11 @@ Partial Class Form1
         Me.Controls.Add(Me.BBurst)
         Me.Controls.Add(Me.Button3)
         Me.Controls.Add(Me.TextBox1)
+        Me.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle
+        Me.Icon = CType(resources.GetObject("$this.Icon"), System.Drawing.Icon)
         Me.MaximizeBox = False
         Me.Name = "Form1"
-        Me.Text = "can2usb Tester"
+        Me.Text = "T4e can2usb Tester"
         Me.GroupBox1.ResumeLayout(False)
         Me.GroupBox1.PerformLayout()
         Me.GroupBox2.ResumeLayout(False)
@@ -452,4 +470,6 @@ Partial Class Form1
     Friend WithEvents CBCANOBD As CheckBox
     Friend WithEvents BOBDRead As Button
     Friend WithEvents BDownloadCalibration As Button
+    Friend WithEvents FolderBrowserDialog_download As FolderBrowserDialog
+    Friend WithEvents LblCopyright As Label
 End Class
