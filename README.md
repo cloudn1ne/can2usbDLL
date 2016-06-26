@@ -4,6 +4,12 @@ can2usbAVR interface to vb.net
 contains the can2usb.DLL which is the interface DLL to the Arduino/CAN Shield + can2usbAVR code, as well as a little VB.net test project,
 that can be used to connect to a KLINE/CAN T4e and discover the access level.
 
+Solution Contents
+-----------------
+* can2usbDLL - DLL project used by can2usbTestApp and the T4e ECU Editor to interface to the AVR/Arudino
+* can2usbTestApp - can2usb Tester App
+* Setup - a Setup project for above
+
 KLINE+CAN ECUs (earlier MY's)
 -----------------------------
 * select 1000kbit CAN speed
