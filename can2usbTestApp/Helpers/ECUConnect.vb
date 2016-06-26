@@ -48,6 +48,12 @@ Public Class ECUConnect
         End If
     End Sub
 
+
+    '**********************************************************
+    '* Read Calibration version
+    '* via memory read if possible
+    '* otherwise via OBD
+    '**********************************************************
     Private Sub ReadCalibrationDetail()
         Dim caldetail As String = ""
         Dim b() As Byte
