@@ -53,9 +53,17 @@ Public Class ECUConnect
         Dim b() As Byte
 
         If (ECU.AccessLevel = ECU.ECUAccessLevel.CANOnlyUnlocked) Or (ECU.AccessLevel = ECU.ECUAccessLevel.KLINE_CAN) Then
-            b = Form1.ECU.ECUReadMemory(&H10000, &H28)
+            b = ECU.ECUReadMemory(&H10000, &H28)
             If (b IsNot Nothing) Then
                 caldetail = System.Text.Encoding.ASCII.GetString(b)
+                LblCalibrationDetail.Text = caldetail
+            Else
+                LblCalibrationDetail.Text = "unable to read"
+            End If
+        ElseIf ECU.AccessLevel = ECU.ECUAccessLevel.CANOnlyLocked Then
+            b = ECU.ECUQueryOBD(&H9, &H4)
+            If (b IsNot Nothing) Then
+                caldetail &= System.Text.Encoding.ASCII.GetString(b)
                 LblCalibrationDetail.Text = caldetail
             Else
                 LblCalibrationDetail.Text = "unable to read"
@@ -125,13 +133,13 @@ Public Class ECUConnect
         ' Probe OBD 0x22, 0x211 - ECU Type 'T4E'
         ' only CAN ECUs can do that via CAN2USB if that fails assume KLINE_CAN    
         '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-        b = Form1.ECU.ECUQueryOBD(&H22, &H211) ' we need a second call here, the first one gets ignored - fix later
-        b = Form1.ECU.ECUQueryOBD(&H22, &H211)
+        b = ECU.ECUQueryOBD(&H22, &H211) ' we need a second call here, the first one gets ignored - fix later
+        b = ECU.ECUQueryOBD(&H22, &H211) ' this should give us the ECU type (T4E)
         If (b Is Nothing) Then
             Console.WriteLine("ECUProbeLevels() - no reply to OBD, checking if its a KLINE ECU")
             ' no OBD so should be KLINE and free to read via CAN to verify this we read 0x10000
             ' reply doesnt matter as long as we get something (=! -1)            
-            b = Form1.ECU.ECUReadMemory(&H10000, &H32)
+            b = ECU.ECUReadMemory(&H10000, &H32)
             If (b IsNot Nothing) Then
                 ' we got something, make sure its not just garbage
                 If (b.Length = &H32) Then
@@ -148,7 +156,7 @@ Public Class ECUConnect
 
         ' its not KLINE_CAN check if the ECU is unlocked by reading a well known
         ' address 0xA0C which should contain "T4E" as a string        
-        b = Form1.ECU.ECUReadMemory(&HA0C, 16)
+        b = ECU.ECUReadMemory(&HA0C, 16)
         If (b Is Nothing) Then
             ECU.AccessLevel = ECUAccessLevel.CANOnlyLocked
             UpdateAccessTypeLabel()
@@ -283,7 +291,7 @@ Public Class ECUConnect
     ' set text for LblAccessType according to ECU Access Capablities
     Private Sub UpdateAccessTypeLabel()
         If ECU.AccessLevel = ECUAccessLevel.CANOnlyLocked Then
-            LblAccessType.Text = "CAN Bus OBD only"
+            LblAccessType.Text = "CAN Bus restricted access"
         ElseIf ECU.AccessLevel = ECUAccessLevel.CANOnlyUnlocked Then
             LblAccessType.Text = "CAN Bus full access"
         ElseIf ECU.AccessLevel = ECUAccessLevel.KLINE_CAN Then

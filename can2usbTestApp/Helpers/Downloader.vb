@@ -15,59 +15,7 @@
         Me.TopMost = True
     End Sub
 
-    '*****************************************************
-    '* Read ECU Memory of size (0xFF max) from addr
-    '*****************************************************
-    Public Function ECUReadMemory(ByVal addr As Integer, ByVal size As Byte) As Byte()
-        Dim retval() As Byte = Nothing
-        'Dim len As Integer = 0
-        Dim status As Boolean
-        Dim a() As Byte = BitConverter.GetBytes(addr)
 
-        'Console.WriteLine("ECUReadMemory() 0x" & Hex(addr) & " len=" & size)
-        If (Not ECU.Adapter.isConnected) Then
-            Return (retval)
-        End If
-        '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-        ' create CANMessage struct and send
-        '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-        Dim cmsg As New can2usbDLL.can2usb.CANMessage
-        cmsg.id = &H53
-        cmsg.len = 5
-        Array.Resize(cmsg.data, cmsg.len)
-        cmsg.data(0) = a(3)
-        cmsg.data(1) = a(2)
-        cmsg.data(2) = a(1)
-        cmsg.data(3) = a(0)
-        cmsg.data(4) = size And &HFF
-        'Console.WriteLine("Num Msgs :" & size / 8)
-        If (size / 8 < 1) Then size = 8
-        status = ECU.Adapter.SendAndWaitForNumOfCANMessageIDs(cmsg, &H7A0, size / 8)
-        If (status) Then
-            '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-            ' process reply
-            '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''    
-            ' allocate memory needed for fully reply (size)
-            Array.Resize(retval, size)
-            Dim retval_idx As Integer = 0
-
-            Dim cb() As can2usbDLL.can2usb.CANMessage
-            cb = ECU.Adapter.GetCANMessagesBuffer
-            ' copy all the received cb.data() buffers to retval()
-            For i As Integer = 0 To cb.Length - 1
-                If (cb(i).id = &H7A0) Then
-                    Array.Copy(cb(i).data, 0, retval, retval_idx, cb(i).len)
-                    'Console.WriteLine("RBytes:")
-                    'For j As Integer = 0 To cb(i).len - 1
-                    ' Console.Write(" 0x" & Hex(cb(i).data(j)))
-                    ' Next
-                    '         Console.WriteLine("")
-                    retval_idx += cb(i).len
-                End If
-            Next
-        End If
-        Return (retval)
-    End Function
 
 
     '*****************************************************
@@ -104,10 +52,10 @@
         While (c < chunks)
             a = addr + (c * stepsize)
             LblDownloadStatus.Text = "Downloading 0x" & Hex(a)
-            b = ECUReadMemory(a, stepsize)
+            b = ECU.ECUReadMemory(a, stepsize)
             retrycounter = 0
             While (b Is Nothing) And (retrycounter < max_retries)
-                b = ECUReadMemory(a, stepsize)
+                b = ECU.ECUReadMemory(a, stepsize)
                 retrycounter += 1
             End While
             If (retrycounter >= max_retries) Then
@@ -133,10 +81,10 @@
             a = addr + (chunks * stepsize)
             LblDownloadStatus.Text = "Downloading 0x" & Hex(a)
             Console.WriteLine(Hex(a) & " len =" & remainder)
-            b = ECUReadMemory(a, remainder)
+            b = ECU.ECUReadMemory(a, remainder)
             retrycounter = 0
             While (b Is Nothing) And (retrycounter < max_retries)
-                b = ECUReadMemory(a, remainder)
+                b = ECU.ECUReadMemory(a, remainder)
                 retrycounter += 1
             End While
             If (retrycounter >= max_retries) Then
@@ -160,5 +108,7 @@
         Me.Close()
     End Sub
 
+    Private Sub Downloader_Load(sender As Object, e As EventArgs) Handles MyBase.Load
 
+    End Sub
 End Class

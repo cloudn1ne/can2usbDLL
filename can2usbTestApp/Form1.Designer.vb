@@ -50,7 +50,7 @@ Partial Class Form1
         Me.Label2 = New System.Windows.Forms.Label()
         Me.Label1 = New System.Windows.Forms.Label()
         Me.GroupBox2 = New System.Windows.Forms.GroupBox()
-        Me.BDownloadCalibration = New System.Windows.Forms.Button()
+        Me.BDownloadECU = New System.Windows.Forms.Button()
         Me.CBCANOBD = New System.Windows.Forms.CheckBox()
         Me.LPollInterval = New System.Windows.Forms.Label()
         Me.SBPollInterval = New System.Windows.Forms.HScrollBar()
@@ -289,7 +289,7 @@ Partial Class Form1
         '
         'GroupBox2
         '
-        Me.GroupBox2.Controls.Add(Me.BDownloadCalibration)
+        Me.GroupBox2.Controls.Add(Me.BDownloadECU)
         Me.GroupBox2.Controls.Add(Me.CBCANOBD)
         Me.GroupBox2.Controls.Add(Me.LPollInterval)
         Me.GroupBox2.Controls.Add(Me.SBPollInterval)
@@ -305,14 +305,15 @@ Partial Class Form1
         Me.GroupBox2.TabStop = False
         Me.GroupBox2.Text = "Setup"
         '
-        'BDownloadCalibration
+        'BDownloadECU
         '
-        Me.BDownloadCalibration.Location = New System.Drawing.Point(6, 61)
-        Me.BDownloadCalibration.Name = "BDownloadCalibration"
-        Me.BDownloadCalibration.Size = New System.Drawing.Size(156, 23)
-        Me.BDownloadCalibration.TabIndex = 6
-        Me.BDownloadCalibration.Text = "Download ECU"
-        Me.BDownloadCalibration.UseVisualStyleBackColor = True
+        Me.BDownloadECU.Enabled = False
+        Me.BDownloadECU.Location = New System.Drawing.Point(6, 61)
+        Me.BDownloadECU.Name = "BDownloadECU"
+        Me.BDownloadECU.Size = New System.Drawing.Size(156, 23)
+        Me.BDownloadECU.TabIndex = 6
+        Me.BDownloadECU.Text = "Download ECU"
+        Me.BDownloadECU.UseVisualStyleBackColor = True
         '
         'CBCANOBD
         '
@@ -469,7 +470,7 @@ Partial Class Form1
     Friend WithEvents SBPollInterval As HScrollBar
     Friend WithEvents CBCANOBD As CheckBox
     Friend WithEvents BOBDRead As Button
-    Friend WithEvents BDownloadCalibration As Button
+    Friend WithEvents BDownloadECU As Button
     Friend WithEvents FolderBrowserDialog_download As FolderBrowserDialog
     Friend WithEvents LblCopyright As Label
 End Class

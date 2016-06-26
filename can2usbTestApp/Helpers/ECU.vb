@@ -3,7 +3,7 @@
 '* (c) Georg Swoboda 2016 <cn@warp.at>
 '*******************************************************************************
 
-'#Const DBG_READMEMORY = 1
+
 '#Const DBG_READOBD = 1
 
 Public Class ECU
@@ -21,22 +21,15 @@ Public Class ECU
     '*****************************************************
     '* Read ECU Memory of size (0xFF max) from addr
     '*****************************************************
-    Public Function ECUReadMemory(ByVal addr As Integer, ByVal size As Byte) As Byte()
+    Public Shared Function ECUReadMemory(ByVal addr As Integer, ByVal size As Byte) As Byte()
         Dim retval() As Byte = Nothing
-        Dim len As Integer = 0
+        'Dim len As Integer = 0
         Dim status As Boolean
         Dim a() As Byte = BitConverter.GetBytes(addr)
 
-#If DBG_READMEMORY Then
-        Console.WriteLine("ECUReadMemory() addr 0x" & Hex(addr))
-        If (Not Adapter.isConnected) Then
-            Console.WriteLine("ECUReadMemory() - adapter not connected")
+        'Console.WriteLine("ECUReadMemory() 0x" & Hex(addr) & " len=" & size)
+        If (Not ECU.Adapter.isConnected) Then
             Return (retval)
-        End If
-#End If
-        ' minimum read size is 8
-        If (size < 8) Then
-            size = 8
         End If
         '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
         ' create CANMessage struct and send
@@ -50,41 +43,32 @@ Public Class ECU
         cmsg.data(2) = a(1)
         cmsg.data(3) = a(0)
         cmsg.data(4) = size And &HFF
+        'Console.WriteLine("Num Msgs :" & size / 8)
+        If (size / 8 < 1) Then size = 8
         status = ECU.Adapter.SendAndWaitForNumOfCANMessageIDs(cmsg, &H7A0, size / 8)
-        'If (status) Then
-        '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-        ' process reply
-        ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''' 
-        ' allocate memory needed for fully reply
-        Array.Resize(retval, size)
-        Dim retval_idx As Integer = 0
+        If (status) Then
+            '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+            ' process reply
+            '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''    
+            ' allocate memory needed for fully reply (size)
+            Array.Resize(retval, size)
+            Dim retval_idx As Integer = 0
 
-        Dim cb() As can2usbDLL.can2usb.CANMessage
-        cb = Adapter.GetCANMessagesBuffer
-        For i As Integer = 0 To cb.Length - 1
-            If (cb(i).id = &H7A0) Then
-                If (retval_idx < size - cb(i).len) Then
+            Dim cb() As can2usbDLL.can2usb.CANMessage
+            cb = ECU.Adapter.GetCANMessagesBuffer
+            ' copy all the received cb.data() buffers to retval()
+            For i As Integer = 0 To cb.Length - 1
+                If (cb(i).id = &H7A0) Then
                     Array.Copy(cb(i).data, 0, retval, retval_idx, cb(i).len)
+                    'Console.WriteLine("RBytes:")
+                    'For j As Integer = 0 To cb(i).len - 1
+                    ' Console.Write(" 0x" & Hex(cb(i).data(j)))
+                    ' Next
+                    '         Console.WriteLine("")
                     retval_idx += cb(i).len
                 End If
-#If DBG_READMEMORY Then
-                Console.Write(i & "*** 0x" & Hex(cb(i).id))
-                For j As Integer = 0 To cb(i).len - 1
-                    Console.Write(" " & Hex(cb(i).data(j)))
-                Next
-                Console.WriteLine("")
-#End If
-            Else
-#If DBG_READMEMORY Then
-                Console.Write(i & "    0x" & Hex(cb(i).id))
-                For j As Integer = 0 To cb(i).len - 1
-                    Console.Write(" " & Hex(cb(i).data(j)))
-                Next
-                Console.WriteLine("")
-#End If
-            End If
-        Next
-        'End If
+            Next
+        End If
         Return (retval)
     End Function
 
@@ -92,7 +76,7 @@ Public Class ECU
     '*****************************************************
     '* Read OBD Mode and Pid
     '*****************************************************
-    Public Function ECUQueryOBD(ByVal Mode As Integer, ByVal Pid As Integer) As Byte()
+    Public Shared Function ECUQueryOBD(ByVal Mode As Integer, ByVal Pid As Integer) As Byte()
         Dim retval() As Byte = Nothing
         Dim can_len As Integer = 0
         Dim obd_tx_len As Integer = 0
@@ -128,11 +112,13 @@ Public Class ECU
         Else
             cmsg.data(2) = Pid
         End If
-        'Console.WriteLine("len: " & cmsg.len)
-        'For i As Integer = 0 To cmsg.len - 1
-        '   Console.WriteLine(Hex(cmsg.data(i)))
-        'Next
-        'Console.WriteLine(obd_cmd)
+#If DBG_READOBD Then
+        Console.WriteLine("len: " & cmsg.len)
+        For i As Integer = 0 To cmsg.len - 1
+            Console.WriteLine(Hex(cmsg.data(i)))
+        Next
+        Console.WriteLine(obd_cmd)
+#End If
         ECU.Adapter.SendAndWaitForCANMessageID(cmsg, &H7E8, 1000)
         '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
         ' process reply
@@ -153,33 +139,91 @@ Public Class ECU
             Return (Nothing)
         End If
 
-        Dim obd_rx_mode As Integer = cmsg.data(1)
-        Dim obd_rx_pid As Integer = 0
-        Dim obd_rx_len As Integer = cmsg.data(0)
-        Dim obd_rx_datalen As Integer = obd_rx_len - obd_tx_len
-        If (obd_tx_len = 2) Then
-            obd_rx_pid = cmsg.data(2)
-        ElseIf (obd_tx_len = 3) Then
-            obd_rx_pid = cmsg.data(2) * 256 + cmsg.data(3)
-        End If
+        If (cmsg.data(0) <= 7) Then
+            ' SINGLE FRAME RESPONSE 
+            Dim obd_rx_mode As Integer = cmsg.data(1)
+            Dim obd_rx_pid As Integer = 0
+            Dim obd_rx_len As Integer = cmsg.data(0)
+            Dim obd_rx_datalen As Integer = obd_rx_len - obd_tx_len
+            If (obd_tx_len = 2) Then
+                obd_rx_pid = cmsg.data(2)
+            ElseIf (obd_tx_len = 3) Then
+                obd_rx_pid = cmsg.data(2) * 256 + cmsg.data(3)
+            End If
 
 #If DBG_READOBD Then
-        Console.WriteLine("ECUQueryOBD() Reply Mode: 0x" & Hex(obd_rx_mode))
-        Console.WriteLine("ECUQueryOBD() Reply PID: 0x" & Hex(obd_rx_pid))
-        Console.WriteLine("ECUQueryOBD() Send Overall Size: 0x" & Hex(obd_tx_len))
-        Console.WriteLine("ECUQueryOBD() Reply Data Size: 0x" & Hex(obd_rx_datalen))
+            Console.WriteLine("ECUQueryOBD() Reply Mode: 0x" & Hex(obd_rx_mode))
+            Console.WriteLine("ECUQueryOBD() Reply PID: 0x" & Hex(obd_rx_pid))
+            Console.WriteLine("ECUQueryOBD() Send Overall Size: 0x" & Hex(obd_tx_len))
+            Console.WriteLine("ECUQueryOBD() Reply Data Size: 0x" & Hex(obd_rx_datalen))
 #End If
-        If (obd_rx_pid = Pid) And (obd_rx_mode - &H40 = Mode) Then
-            ' successful OBD reply                    
-            Array.Resize(retval, obd_rx_datalen)
-            For i As Integer = 0 To obd_rx_datalen - 1
-                retval(i) = cmsg.data(obd_tx_len + i + 1)
+            If (obd_rx_pid = Pid) And (obd_rx_mode - &H40 = Mode) Then
+                ' successful OBD reply                    
+                Array.Resize(retval, obd_rx_datalen)
+                For i As Integer = 0 To obd_rx_datalen - 1
+                    retval(i) = cmsg.data(obd_tx_len + i + 1)
 #If DBG_READOBD Then
-                Console.WriteLine(" 0x" & Hex(retval(i)))
+                    Console.WriteLine(" 0x" & Hex(retval(i)))
 #End If
+                Next
+                Return (retval)
+            End If
+        Else
+            ' MULTIFRAME RESPONSE 
+            Dim len_received = 0
+            Dim multi_frame_len As Integer = (cmsg.data(0) And &HF) + cmsg.data(1) - 3 ' minus 3 bytes (mode ack, pid, 0x1)
+            Array.Resize(retval, multi_frame_len)
+#If DBG_READOBD Then
+            Console.WriteLine("Multiframe len:" & multi_frame_len)
+            Console.Write("First Frame: ")
+            For i As Integer = 0 To cmsg.len - 1
+                Console.Write(" 0x" & Hex(cmsg.data(i)))
             Next
-            Return (retval)
+            Console.WriteLine("")
+#End If
+
+            ' copy the last 3 bytes from the first frame into our buffer            
+            Array.Copy(cmsg.data, cmsg.len - 3, retval, 0, 3)
+            len_received = 3
+            While (len_received < multi_frame_len)
+                ' send flow control frame to ECU
+                cmsg.id = &H7E0
+                cmsg.data(0) = &H30     ' flow control 
+                cmsg.data(1) = &H1      ' send us one frame at a time
+                cmsg.data(2) = &H0      ' no delay
+                ECU.Adapter.SendAndWaitForCANMessageID(cmsg, &H7E8, 1000)
+                cmsg = ECU.Adapter.GetLastCANMessageBufferByID(&H7E8)
+                If (cmsg.used = 0) Then
+                    Return (Nothing)
+                End If
+#If DBG_READOBD Then
+                Console.WriteLine("left len: " & multi_frame_len - len_received)
+#End If
+                Dim copy_len As Integer
+                If (multi_frame_len - len_received >= 7) Then
+                    copy_len = 7
+                Else
+                    copy_len = multi_frame_len - len_received
+                End If
+                Array.Copy(cmsg.data, 1, retval, len_received, copy_len)
+                len_received += copy_len
+#If DBG_READOBD Then
+                Console.Write("Consecutive Frame: ")
+                For i As Integer = 0 To cmsg.len - 1
+                    Console.Write(" 0x" & Hex(cmsg.data(i)))
+                Next
+                Console.WriteLine("")
+#End If
+            End While
+#If DBG_READOBD Then
+            Console.Write("Retval: ")
+            For i As Integer = 0 To retval.Length - 1
+                Console.Write(" 0x" & Hex(retval(i)))
+            Next
+            Console.WriteLine("")
+#End If
         End If
+
         Return (retval)
     End Function
 End Class

@@ -30,9 +30,7 @@ Public Class Form1
         TextBox1.Text = ""
     End Sub
 
-    Private Sub BBurst_Click(sender As Object, e As EventArgs) Handles BBurst.Click
-        SimulateCAN80Burst()
-    End Sub
+
 
     ' update statistics groupbox
     Private Sub TimerStats_Tick(sender As Object, e As EventArgs) Handles TimerStats.Tick
@@ -84,21 +82,25 @@ Public Class Form1
         If (ECU.Adapter.isConnected) Then
             If (ECU.AccessLevel = ECU.ECUAccessLevel.KLINE_CAN) Then ' KLINE/CAN ECU (no OBD possible without KLINE adapter)
                 CBCAN50.Enabled = True
+                BDownloadECU.Enabled = True
                 CBCAN80.Enabled = True
                 CBCANOBD.Enabled = False
                 CBTimerQuery.Enabled = True
             ElseIf (ECU.AccessLevel = ECU.ECUAccessLevel.CANOnlyLocked) Then '  CANOnly locked ECU (no memory reading possible)
                 CBCAN50.Enabled = False
+                BDownloadECU.Enabled = False
                 CBCAN80.Enabled = True
                 CBCANOBD.Enabled = True
                 CBTimerQuery.Enabled = True
             ElseIf (ECU.AccessLevel = ECU.ECUAccessLevel.CANOnlyUnlocked) Then '  CANOnly unlocked ECU
                 CBCAN50.Enabled = True
+                BDownloadECU.Enabled = True
                 CBCAN80.Enabled = True
                 CBCANOBD.Enabled = True
                 CBTimerQuery.Enabled = True
             Else ' unknown ECU capabilities
                 CBCAN50.Enabled = False
+                BDownloadECU.Enabled = False
                 CBCAN80.Enabled = False
                 CBCANOBD.Enabled = False
                 CBTimerQuery.Enabled = False
@@ -109,10 +111,55 @@ Public Class Form1
             CBCAN80.Enabled = False
             CBCANOBD.Enabled = False
             CBTimerQuery.Enabled = False
+            BDownloadECU.Enabled = False
         End If
     End Sub
+
+    '****************************************
+    '* manually trigger CAN 0x80 logger burst
+    '****************************************
+    Private Sub BBurst_Click(sender As Object, e As EventArgs) Handles BBurst.Click
+        If (ECU.Adapter.isConnected) Then
+            If (CBCAN80.Enabled) Then
+                SimulateCAN80Burst()
+            Else
+                TextBox1.Text &= "Logger Burst not supported by ECU software" & vbCrLf
+            End If
+
+        Else
+            TextBox1.Text &= "not connected" & vbCrLf
+        End If
+    End Sub
+
+    '****************************************
+    '* manually trigger CAN 0x50 memory read
+    '****************************************
     Private Sub BMemoryRead_Click(sender As Object, e As EventArgs) Handles BMemoryRead.Click
-        SimulateMemoryRead()
+        If (ECU.Adapter.isConnected) Then
+            If (CBCAN50.Enabled) Then
+                SimulateMemoryRead()
+            Else
+                TextBox1.Text &= "Memory Read not supported by ECU software" & vbCrLf
+            End If
+
+        Else
+            TextBox1.Text &= "not connected" & vbCrLf
+        End If
+    End Sub
+
+    '****************************************
+    '* manually trigger OBD test
+    '****************************************
+    Private Sub BOBDRead_Click(sender As Object, e As EventArgs) Handles BOBDRead.Click
+        If (ECU.Adapter.isConnected) Then
+            If (CBCANOBD.Enabled) Then
+                SimulateOBDRead()
+            Else
+                TextBox1.Text &= "OBD Read not supported by ECU software" & vbCrLf
+            End If
+        Else
+            TextBox1.Text &= "not connected" & vbCrLf
+        End If
     End Sub
 
 
@@ -126,8 +173,8 @@ Public Class Form1
         Array.Resize(cmsg.data, cmsg.len)
         cmsg.data(0) = 8
         cmsg.data(1) = 1
-        ECU.Adapter.SendAndWaitForCANMessageID(cmsg, &H2B4)
-        AddToTBByID(1, &H2B4)       ' &H2B4 is added to textbox if we catch it
+        ECU.Adapter.SendAndWaitForCANMessageID(cmsg, &H2AC)
+        AddToTBByID(1, &H2AC)       ' &H2B4 is added to textbox if we catch it
         burstcounter += 1
     End Sub
 
@@ -165,7 +212,21 @@ Public Class Form1
 
         'PrintCANMessageBuffers()
         b = ECU.ECUQueryOBD(&H22, &H211)
-        'PrintCANMessageBuffers()
+        If (b IsNot Nothing) Then
+            TextBox1.Text &= System.Text.Encoding.ASCII.GetString(b) & vbCrLf
+        Else
+            TextBox1.Text &= "no reply to OBD query" & vbCrLf
+        End If
+        '       PrintCANMessageBuffers()
+        b = ECU.ECUQueryOBD(&H9, &H4)
+        '        PrintCANMessageBuffers()
+        If (b IsNot Nothing) Then
+            TextBox1.Text &= System.Text.Encoding.ASCII.GetString(b) & vbCrLf
+        Else
+            TextBox1.Text &= "no reply to OBD query" & vbCrLf
+        End If
+        b = ECU.ECUQueryOBD(&H9, &H2)
+        '        PrintCANMessageBuffers()
         If (b IsNot Nothing) Then
             TextBox1.Text &= System.Text.Encoding.ASCII.GetString(b) & vbCrLf
         Else
@@ -225,12 +286,11 @@ Public Class Form1
     End Sub
 
 
-    Private Sub BOBDRead_Click(sender As Object, e As EventArgs) Handles BOBDRead.Click
-        SimulateOBDRead()
-    End Sub
 
-
-    Private Sub BDownloadCalibration_Click(sender As Object, e As EventArgs) Handles BDownloadCalibration.Click
+    '*****************************************************
+    '* Download various memory ranges from the ECU
+    '*****************************************************
+    Private Sub BDownloadECU_Click(sender As Object, e As EventArgs) Handles BDownloadECU.Click
         FolderBrowserDialog_download.RootFolder = Environment.SpecialFolder.MyDocuments
         FolderBrowserDialog_download.Description = "Select directory to dump ECU download"
         If FolderBrowserDialog_download.ShowDialog() = Windows.Forms.DialogResult.OK Then
