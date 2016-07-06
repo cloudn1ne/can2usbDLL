@@ -167,14 +167,16 @@ Public Class Form1
     '* Simulate CAN 0x80 message burst
     '*****************************************************
     Private Sub SimulateCAN80Burst()
+
+        ECU.CAN80ProbeMaxID()
         Dim cmsg As New can2usbDLL.can2usb.CANMessage
         cmsg.id = &H80
         cmsg.len = 3
         Array.Resize(cmsg.data, cmsg.len)
         cmsg.data(0) = 8
         cmsg.data(1) = 1
-        ECU.Adapter.SendAndWaitForCANMessageID(cmsg, &H2AC)
-        AddToTBByID(1, &H2AC)       ' &H2B4 is added to textbox if we catch it
+        ECU.Adapter.SendAndWaitForCANMessageID(cmsg, ECU.CAN80MaxID)
+        AddToTBByID(1, ECU.CAN80MaxID)       ' &H2B4 is added to textbox if we catch it
         burstcounter += 1
     End Sub
 

@@ -5,10 +5,11 @@
 
 
 '#Const DBG_READOBD = 1
-
+#Const DBG_MEMREAD = 1
 Public Class ECU
     Public Shared Adapter As New can2usbDLL.can2usb
     Public Shared AccessLevel As New ECUAccessLevel
+    Public Shared CAN80MaxID As Integer = 0
 
     ' ECU Access Levels
     Enum ECUAccessLevel
@@ -19,6 +20,35 @@ Public Class ECU
     End Enum
 
     '*****************************************************
+    '* Try to determine the highest CAN 0x80 reply ID 
+    '* for the connected ECU
+    '*****************************************************
+    Public Shared Sub CAN80ProbeMaxID()
+        If (CAN80MaxID = 0) Then
+            Dim cmsg As New can2usbDLL.can2usb.CANMessage
+            cmsg.id = &H80
+            cmsg.len = 3
+            Array.Resize(cmsg.data, cmsg.len)
+            cmsg.data(0) = 8
+            cmsg.data(1) = 1
+            ECU.Adapter.SendAndWaitForCANMessageID(cmsg, &H400) ' use 0x400 message to bail out from waiting
+            Dim cb() As can2usbDLL.can2usb.CANMessage
+            cb = ECU.Adapter.GetCANMessagesBuffer()
+            Dim maxid = 0
+            ' grab highest reply CAN ID that is in the range of &H200-&H3FF
+            For i = 0 To cb.Length - 1
+                If (cb(i).id > maxid) And (cb(i).id > &H200) And (cb(i).id < &H400) Then
+                    maxid = cb(i).id
+                End If
+            Next
+            If (maxid > 0) Then
+                CAN80MaxID = maxid
+                Console.WriteLine("CAN80MaxID: 0x" & Hex(maxid))
+            End If
+        End If
+    End Sub
+
+    '*****************************************************
     '* Read ECU Memory of size (0xFF max) from addr
     '*****************************************************
     Public Shared Function ECUReadMemory(ByVal addr As Integer, ByVal size As Byte) As Byte()
@@ -26,8 +56,9 @@ Public Class ECU
         'Dim len As Integer = 0
         Dim status As Boolean
         Dim a() As Byte = BitConverter.GetBytes(addr)
-
-        'Console.WriteLine("ECUReadMemory() 0x" & Hex(addr) & " len=" & size)
+#If DBG_MEMREAD Then
+        Console.WriteLine("ECUReadMemory() 0x" & Hex(addr) & " len=" & size)
+#End If
         If (Not ECU.Adapter.isConnected) Then
             Return (retval)
         End If
@@ -43,7 +74,9 @@ Public Class ECU
         cmsg.data(2) = a(1)
         cmsg.data(3) = a(0)
         cmsg.data(4) = size And &HFF
-        'Console.WriteLine("Num Msgs :" & size / 8)
+#If DBG_MEMREAD Then
+        Console.WriteLine("Num Msgs :" & size / 8)
+#End If
         If (size / 8 < 1) Then size = 8
         status = ECU.Adapter.SendAndWaitForNumOfCANMessageIDs(cmsg, &H7A0, size / 8)
         If (status) Then
@@ -58,19 +91,23 @@ Public Class ECU
             cb = ECU.Adapter.GetCANMessagesBuffer
             ' copy all the received cb.data() buffers to retval()
             For i As Integer = 0 To cb.Length - 1
-                If (cb(i).id = &H7A0) Then
+                ' copy memread reply to buffer - make sure it fits
+                If (cb(i).id = &H7A0) And (cb(i).data.Length <= size - retval_idx) Then
                     Array.Copy(cb(i).data, 0, retval, retval_idx, cb(i).len)
-                    'Console.WriteLine("RBytes:")
-                    'For j As Integer = 0 To cb(i).len - 1
-                    ' Console.Write(" 0x" & Hex(cb(i).data(j)))
-                    ' Next
-                    '         Console.WriteLine("")
+#If DBG_MEMREAD Then
+                    Console.WriteLine("RBytes:")
+                    For j As Integer = 0 To cb(i).len - 1
+                        Console.Write(" 0x" & Hex(cb(i).data(j)))
+                    Next
+                    Console.WriteLine("")
+#End If
                     retval_idx += cb(i).len
                 End If
             Next
         End If
         Return (retval)
     End Function
+
 
 
     '*****************************************************
