@@ -259,9 +259,12 @@ Public Class Form1
         Dim cb() As can2usbDLL.can2usb.CANMessage
         cb = ECU.Adapter.GetCANMessagesBuffer()
         For i = 0 To cb.Length - 1
-            '            If (cb(i).id = id) Then
-            TextBox1.Text &= addr & " = " & Hex(cb(i).id) & vbCrLf
-            '           End If
+            Dim data As String = ""
+            For j As Integer = 0 To cb(i).data.Length - 1
+                data &= " 0x" & Hex(cb(i).data(j))
+            Next
+            TextBox1.Text &= addr & " = " & Hex(cb(i).id) & data & vbCrLf
+
         Next
     End Sub
 
