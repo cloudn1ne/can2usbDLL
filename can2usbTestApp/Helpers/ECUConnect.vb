@@ -97,7 +97,7 @@ Public Class ECUConnect
         TBAdapterVersion.BackColor = Color.LightGray
 
         If ThisComPortName <> "" Then
-            If (ECU.Adapter.Connect(ThisComPortName, CANReset) = True) Then
+            If (ECU.Adapter.Connect(ThisComPortName, CANReset, shield) = True) Then
                 Console.WriteLine("ConnectToECU() Speed = " & speed)
                 Console.WriteLine("ConnectToECU() ShieldType = " & shield)
                 ECU.Adapter.Init(speed, shield)
