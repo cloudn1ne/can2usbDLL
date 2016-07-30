@@ -102,6 +102,7 @@ Public Class can2usb
                 UsingSerial = False
                 ShieldTimeout = 200
                 tcpClient = New AsyncSocket
+                ' Next 3 lines for possible later implementation, if needed
                 'tcpClient.NoDelay = True
                 'tcpClient.ReceiveTimeout = ShieldTimeout
                 'tcpClient.SendTimeout = ShieldTimeout
@@ -534,9 +535,8 @@ Public Class can2usb
         Dim s As Integer
         Dim copy_start_idx As Integer
         Dim cmsg As CANMessage
-        'MsgBox("DataReceived triggered with a Length = " & ser_len & " & current buf.Length = " & buf.Length)
-        If tcpClient.IsOpen Then
 
+        If tcpClient.IsOpen Then
             Try
                 Dim buf_len As Integer = buf.Length
 
@@ -984,13 +984,16 @@ Public Class can2usb
     '* Initialize adapter
     '*****************************************************
     Public Function Init(ByVal speed As Integer, ByVal shield As Integer) As Boolean
-        ' check for valid CAN Speeds        
-        If ((speed = 125) Or (speed = 250) Or (speed = 500) Or (speed = 1000)) Then
-            ' initialization for PiCAN2 not needed
-            If (shield = ShieldType.SeedStudio) Or (shield = ShieldType.SparkFun) Then
+        If (UsingSerial AndAlso ComPort.IsOpen) Or (Not UsingSerial AndAlso tcpClient.IsOpen) Then
+            ' check for valid CAN Speeds        
+            If ((speed = 125) Or (speed = 250) Or (speed = 500) Or (speed = 1000)) Then
                 Dim query As String = ""
                 query = "$I," & speed & "," & shield & vbCrLf
-                ComPort.WriteLine(query)
+                If UsingSerial Then
+                    ComPort.Write(query)
+                Else
+                    tcpClient.Send(query)
+                End If
                 Return (True)
             End If
         End If
