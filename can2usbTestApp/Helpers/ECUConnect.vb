@@ -187,6 +187,8 @@ Public Class ECUConnect
         ' initialize Form elements
         ''''''''''''''''''''''''''''''
         EnumerateComports()
+        ' hide ComPort/TCPIP elements until we know which shield it is
+        UpdateShieldControls()
         ' setup Shield Types
         CBShieldType.Items.Clear()
         CBShieldType.Items.Add(New GenericListItem(Of Integer)("SparkFun", can2usbDLL.can2usb.ShieldType.SparkFun))
@@ -204,23 +206,6 @@ Public Class ECUConnect
     ' Load setup from saved registry values
     '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
     Private Sub LoadSetup()
-        '''''''''''''''''''''''''''''''''''''''
-        ' set COM Port to stored settings
-        '''''''''''''''''''''''''''''''''''''''
-        Dim COMPort As String = Form1.T4eReg.GetECUComPort()
-        CBComport.ValueMember = COMPort
-        If (COMPort IsNot "") Then
-            For i As Integer = 0 To CBComport.Items.Count - 1
-                Dim oComPortName As GenericListItem(Of String) = CType(CBComport.Items.Item(i), GenericListItem(Of String))
-                If oComPortName.Value.ToString = COMPort Then
-                    CBComport.SelectedIndex = i
-                    Me.ComPortName = oComPortName.Value.ToString
-                    Exit For
-                End If
-            Next
-        Else
-            ' no com port name saved in registry yet
-        End If
         '''''''''''''''''''''''''''''''''''''''
         ' set CAN Speed to stored settings
         '''''''''''''''''''''''''''''''''''''''
@@ -246,6 +231,30 @@ Public Class ECUConnect
             End If
             idx += 1
         Next
+        UpdateShieldControls()
+
+        '''''''''''''''''''''''''''''''''''''''
+        ' set COM Port to stored settings
+        '''''''''''''''''''''''''''''''''''''''
+        Dim COMPort As String = Form1.T4eReg.GetECUComPort()
+        CBComport.ValueMember = COMPort
+        If (COMPort IsNot "") Then
+            For i As Integer = 0 To CBComport.Items.Count - 1
+                Dim oComPortName As GenericListItem(Of String) = CType(CBComport.Items.Item(i), GenericListItem(Of String))
+                If oComPortName.Value.ToString = COMPort Then
+                    CBComport.SelectedIndex = i
+                    Me.ComPortName = oComPortName.Value.ToString
+                    Exit For
+                End If
+            Next
+        Else
+            ' no com port name saved in registry yet
+        End If
+        ''''''''''''''''''''''''''''''''''''''''''''
+        ' set IPAddress, TCPPort to stored settings
+        ''''''''''''''''''''''''''''''''''''''''''''
+        TBIpaddress.Text = Form1.T4eReg.GetECUIPAddress
+        TBTCPPort.Text = 
         ''''''''''''''''''''''''''''''''''''''''''''''''''
         ' set Flag that tells to reset Arduino on connect
         ''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -309,6 +318,21 @@ Public Class ECUConnect
     End Sub
 
 
+    '*********************************************************************
+    '* depending on the type of shield we need different control elements
+    '*********************************************************************
+    Sub UpdateShieldControls()
+        If (CANShieldType = can2usbDLL.can2usb.ShieldType.PiCAN2) Then
+            TBTCPPort.Enabled = True
+            TBIpaddress.Enabled = True
+            CBComport.Enabled = False
+        Else
+            TBTCPPort.Enabled = False
+            TBIpaddress.Enabled = False
+            CBComport.Enabled = True
+        End If
+    End Sub
+
     Public Sub New()
 
         ' This call is required by the Windows Form Designer.
@@ -320,6 +344,7 @@ Public Class ECUConnect
     Private Sub CBShieldType_SelectedValueChanged(sender As Object, e As EventArgs) Handles CBShieldType.SelectedValueChanged
         Dim val As GenericListItem(Of Integer) = CType(CBShieldType.SelectedItem, GenericListItem(Of Integer))
         CANShieldType = val.Value
+        UpdateShieldControls()
     End Sub
 
     Private Sub CBReset_CheckedChanged(sender As Object, e As EventArgs) Handles CBReset.CheckedChanged

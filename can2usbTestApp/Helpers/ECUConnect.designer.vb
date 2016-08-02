@@ -42,11 +42,19 @@ Partial Class ECUConnect
         Me.CBComport = New System.Windows.Forms.ComboBox()
         Me.Label1 = New System.Windows.Forms.Label()
         Me.ToolTip = New System.Windows.Forms.ToolTip(Me.components)
+        Me.Label6 = New System.Windows.Forms.Label()
+        Me.TBIpaddress = New System.Windows.Forms.TextBox()
+        Me.Label8 = New System.Windows.Forms.Label()
+        Me.TBTCPPort = New System.Windows.Forms.TextBox()
         Me.GroupBox1.SuspendLayout()
         Me.SuspendLayout()
         '
         'GroupBox1
         '
+        Me.GroupBox1.Controls.Add(Me.TBTCPPort)
+        Me.GroupBox1.Controls.Add(Me.Label8)
+        Me.GroupBox1.Controls.Add(Me.TBIpaddress)
+        Me.GroupBox1.Controls.Add(Me.Label6)
         Me.GroupBox1.Controls.Add(Me.CBReset)
         Me.GroupBox1.Controls.Add(Me.CBShieldType)
         Me.GroupBox1.Controls.Add(Me.Label4)
@@ -66,7 +74,7 @@ Partial Class ECUConnect
         Me.GroupBox1.Controls.Add(Me.Label1)
         Me.GroupBox1.Location = New System.Drawing.Point(12, 12)
         Me.GroupBox1.Name = "GroupBox1"
-        Me.GroupBox1.Size = New System.Drawing.Size(378, 233)
+        Me.GroupBox1.Size = New System.Drawing.Size(378, 223)
         Me.GroupBox1.TabIndex = 0
         Me.GroupBox1.TabStop = False
         Me.GroupBox1.Text = "CAN adapter settings"
@@ -74,17 +82,17 @@ Partial Class ECUConnect
         'CBReset
         '
         Me.CBReset.AutoSize = True
-        Me.CBReset.Location = New System.Drawing.Point(243, 68)
+        Me.CBReset.Location = New System.Drawing.Point(241, 106)
         Me.CBReset.Name = "CBReset"
-        Me.CBReset.Size = New System.Drawing.Size(93, 17)
+        Me.CBReset.Size = New System.Drawing.Size(91, 17)
         Me.CBReset.TabIndex = 16
-        Me.CBReset.Text = "Reset Arudino"
+        Me.CBReset.Text = "Reset Device"
         Me.CBReset.UseVisualStyleBackColor = True
         '
         'CBShieldType
         '
         Me.CBShieldType.FormattingEnabled = True
-        Me.CBShieldType.Location = New System.Drawing.Point(99, 95)
+        Me.CBShieldType.Location = New System.Drawing.Point(97, 22)
         Me.CBShieldType.Name = "CBShieldType"
         Me.CBShieldType.Size = New System.Drawing.Size(138, 21)
         Me.CBShieldType.TabIndex = 15
@@ -92,7 +100,7 @@ Partial Class ECUConnect
         'Label4
         '
         Me.Label4.AutoSize = True
-        Me.Label4.Location = New System.Drawing.Point(8, 98)
+        Me.Label4.Location = New System.Drawing.Point(6, 25)
         Me.Label4.Name = "Label4"
         Me.Label4.Size = New System.Drawing.Size(64, 13)
         Me.Label4.TabIndex = 14
@@ -101,7 +109,7 @@ Partial Class ECUConnect
         'LblCalibrationDetail
         '
         Me.LblCalibrationDetail.AutoSize = True
-        Me.LblCalibrationDetail.Location = New System.Drawing.Point(96, 195)
+        Me.LblCalibrationDetail.Location = New System.Drawing.Point(94, 192)
         Me.LblCalibrationDetail.Name = "LblCalibrationDetail"
         Me.LblCalibrationDetail.Size = New System.Drawing.Size(97, 13)
         Me.LblCalibrationDetail.TabIndex = 13
@@ -110,7 +118,7 @@ Partial Class ECUConnect
         'LblAccessType
         '
         Me.LblAccessType.AutoSize = True
-        Me.LblAccessType.Location = New System.Drawing.Point(96, 168)
+        Me.LblAccessType.Location = New System.Drawing.Point(94, 165)
         Me.LblAccessType.Name = "LblAccessType"
         Me.LblAccessType.Size = New System.Drawing.Size(80, 13)
         Me.LblAccessType.TabIndex = 12
@@ -119,7 +127,7 @@ Partial Class ECUConnect
         'Label7
         '
         Me.Label7.AutoSize = True
-        Me.Label7.Location = New System.Drawing.Point(8, 168)
+        Me.Label7.Location = New System.Drawing.Point(6, 165)
         Me.Label7.Name = "Label7"
         Me.Label7.Size = New System.Drawing.Size(74, 13)
         Me.Label7.TabIndex = 11
@@ -128,7 +136,7 @@ Partial Class ECUConnect
         'Label5
         '
         Me.Label5.AutoSize = True
-        Me.Label5.Location = New System.Drawing.Point(8, 195)
+        Me.Label5.Location = New System.Drawing.Point(6, 192)
         Me.Label5.Name = "Label5"
         Me.Label5.Size = New System.Drawing.Size(77, 13)
         Me.Label5.TabIndex = 10
@@ -137,7 +145,7 @@ Partial Class ECUConnect
         'ChkBECUAutoConnect
         '
         Me.ChkBECUAutoConnect.AutoSize = True
-        Me.ChkBECUAutoConnect.Location = New System.Drawing.Point(245, 167)
+        Me.ChkBECUAutoConnect.Location = New System.Drawing.Point(241, 156)
         Me.ChkBECUAutoConnect.Name = "ChkBECUAutoConnect"
         Me.ChkBECUAutoConnect.Size = New System.Drawing.Size(127, 17)
         Me.ChkBECUAutoConnect.TabIndex = 9
@@ -146,7 +154,7 @@ Partial Class ECUConnect
         '
         'TBAdapterVersion
         '
-        Me.TBAdapterVersion.Location = New System.Drawing.Point(99, 133)
+        Me.TBAdapterVersion.Location = New System.Drawing.Point(97, 130)
         Me.TBAdapterVersion.Name = "TBAdapterVersion"
         Me.TBAdapterVersion.ReadOnly = True
         Me.TBAdapterVersion.Size = New System.Drawing.Size(147, 20)
@@ -155,7 +163,7 @@ Partial Class ECUConnect
         'Label3
         '
         Me.Label3.AutoSize = True
-        Me.Label3.Location = New System.Drawing.Point(8, 136)
+        Me.Label3.Location = New System.Drawing.Point(6, 133)
         Me.Label3.Name = "Label3"
         Me.Label3.Size = New System.Drawing.Size(85, 13)
         Me.Label3.TabIndex = 7
@@ -164,7 +172,7 @@ Partial Class ECUConnect
         'BComportListReload
         '
         Me.BComportListReload.Image = Global.can2usbTestApp.My.Resources.Resources.reload_icon
-        Me.BComportListReload.Location = New System.Drawing.Point(316, 29)
+        Me.BComportListReload.Location = New System.Drawing.Point(314, 76)
         Me.BComportListReload.Name = "BComportListReload"
         Me.BComportListReload.Size = New System.Drawing.Size(28, 21)
         Me.BComportListReload.TabIndex = 6
@@ -173,7 +181,7 @@ Partial Class ECUConnect
         'BConnect
         '
         Me.BConnect.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft
-        Me.BConnect.Location = New System.Drawing.Point(262, 190)
+        Me.BConnect.Location = New System.Drawing.Point(258, 179)
         Me.BConnect.Name = "BConnect"
         Me.BConnect.Size = New System.Drawing.Size(110, 34)
         Me.BConnect.TabIndex = 5
@@ -184,7 +192,7 @@ Partial Class ECUConnect
         'RBSpeed1M
         '
         Me.RBSpeed1M.AutoSize = True
-        Me.RBSpeed1M.Location = New System.Drawing.Point(168, 67)
+        Me.RBSpeed1M.Location = New System.Drawing.Point(166, 105)
         Me.RBSpeed1M.Name = "RBSpeed1M"
         Me.RBSpeed1M.Size = New System.Drawing.Size(69, 17)
         Me.RBSpeed1M.TabIndex = 4
@@ -195,7 +203,7 @@ Partial Class ECUConnect
         '
         Me.RBSpeed500K.AutoSize = True
         Me.RBSpeed500K.Checked = True
-        Me.RBSpeed500K.Location = New System.Drawing.Point(99, 67)
+        Me.RBSpeed500K.Location = New System.Drawing.Point(97, 105)
         Me.RBSpeed500K.Name = "RBSpeed500K"
         Me.RBSpeed500K.Size = New System.Drawing.Size(63, 17)
         Me.RBSpeed500K.TabIndex = 3
@@ -206,7 +214,7 @@ Partial Class ECUConnect
         'Label2
         '
         Me.Label2.AutoSize = True
-        Me.Label2.Location = New System.Drawing.Point(8, 69)
+        Me.Label2.Location = New System.Drawing.Point(6, 107)
         Me.Label2.Name = "Label2"
         Me.Label2.Size = New System.Drawing.Size(66, 13)
         Me.Label2.TabIndex = 2
@@ -215,7 +223,7 @@ Partial Class ECUConnect
         'CBComport
         '
         Me.CBComport.FormattingEnabled = True
-        Me.CBComport.Location = New System.Drawing.Point(99, 29)
+        Me.CBComport.Location = New System.Drawing.Point(97, 76)
         Me.CBComport.Name = "CBComport"
         Me.CBComport.Size = New System.Drawing.Size(211, 21)
         Me.CBComport.TabIndex = 1
@@ -223,17 +231,49 @@ Partial Class ECUConnect
         'Label1
         '
         Me.Label1.AutoSize = True
-        Me.Label1.Location = New System.Drawing.Point(8, 32)
+        Me.Label1.Location = New System.Drawing.Point(6, 79)
         Me.Label1.Name = "Label1"
         Me.Label1.Size = New System.Drawing.Size(56, 13)
         Me.Label1.TabIndex = 0
         Me.Label1.Text = "COM Port:"
         '
+        'Label6
+        '
+        Me.Label6.AutoSize = True
+        Me.Label6.Location = New System.Drawing.Point(6, 51)
+        Me.Label6.Name = "Label6"
+        Me.Label6.Size = New System.Drawing.Size(61, 13)
+        Me.Label6.TabIndex = 17
+        Me.Label6.Text = "IP Address:"
+        '
+        'TBIpaddress
+        '
+        Me.TBIpaddress.Location = New System.Drawing.Point(97, 48)
+        Me.TBIpaddress.Name = "TBIpaddress"
+        Me.TBIpaddress.Size = New System.Drawing.Size(100, 20)
+        Me.TBIpaddress.TabIndex = 18
+        '
+        'Label8
+        '
+        Me.Label8.AutoSize = True
+        Me.Label8.Location = New System.Drawing.Point(203, 51)
+        Me.Label8.Name = "Label8"
+        Me.Label8.Size = New System.Drawing.Size(53, 13)
+        Me.Label8.TabIndex = 19
+        Me.Label8.Text = "TCP Port:"
+        '
+        'TBTCPPort
+        '
+        Me.TBTCPPort.Location = New System.Drawing.Point(260, 48)
+        Me.TBTCPPort.Name = "TBTCPPort"
+        Me.TBTCPPort.Size = New System.Drawing.Size(48, 20)
+        Me.TBTCPPort.TabIndex = 20
+        '
         'ECUConnect
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
-        Me.ClientSize = New System.Drawing.Size(397, 250)
+        Me.ClientSize = New System.Drawing.Size(397, 244)
         Me.Controls.Add(Me.GroupBox1)
         Me.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedToolWindow
         Me.Name = "ECUConnect"
@@ -262,4 +302,8 @@ Partial Class ECUConnect
     Friend WithEvents Label4 As Label
     Friend WithEvents CBShieldType As ComboBox
     Friend WithEvents CBReset As CheckBox
+    Friend WithEvents TBTCPPort As TextBox
+    Friend WithEvents Label8 As Label
+    Friend WithEvents TBIpaddress As TextBox
+    Friend WithEvents Label6 As Label
 End Class

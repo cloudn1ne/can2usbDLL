@@ -39,6 +39,34 @@ Public Class T4eRegistry
         End Using
     End Sub
 
+    Public Function GetECUIPAddress() As String
+        Dim setting As String
+        Using Key As RegistryKey = My.Computer.Registry.CurrentUser.OpenSubKey(T4eRegistryPath)
+            setting = CStr(Key.GetValue("ECUIPAddress", ""))
+        End Using
+        Return (setting)
+    End Function
+
+    Public Sub SetECUIPAddress(ByVal setting As String)
+        Using Key As RegistryKey = My.Computer.Registry.CurrentUser.OpenSubKey(T4eRegistryPath, True)
+            Key.SetValue("ECUIPAddress", setting)
+        End Using
+    End Sub
+
+    Public Function GetECUTCPPort() As Integer
+        Dim setting As Integer
+        Using Key As RegistryKey = My.Computer.Registry.CurrentUser.OpenSubKey(T4eRegistryPath)
+            setting = CInt(Key.GetValue("ECUTCPPort", ""))
+        End Using
+        Return (setting)
+    End Function
+
+    Public Sub SetECUTCPPort(ByVal setting As Integer)
+        Using Key As RegistryKey = My.Computer.Registry.CurrentUser.OpenSubKey(T4eRegistryPath, True)
+            Key.SetValue("ECUTCPPort", setting)
+        End Using
+    End Sub
+
     Public Function GetECUAutoConnect() As String
         Dim setting As Boolean
         Using Key As RegistryKey = My.Computer.Registry.CurrentUser.OpenSubKey(T4eRegistryPath)
