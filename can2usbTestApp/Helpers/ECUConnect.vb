@@ -21,10 +21,9 @@ Public Class ECUConnect
 
 
     Private Sub BConnect_Click(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles BConnect.Click
-
         If (Not ECU.Adapter.isConnected) Then
             ''''''''''''''''''''''''''''''''''''''''''''''
-            ' disconnect first
+            ' disconnect first            
             ''''''''''''''''''''''''''''''''''''''''''''''
             LblAccessType.Text = ""
             LblCalibrationDetail.Text = ""
@@ -33,19 +32,16 @@ Public Class ECUConnect
         ''''''''''''''''''''''''''''''''''''''''''''''
         ' connect to ECU
         ''''''''''''''''''''''''''''''''''''''''''''''
-        Dim oComPortName As GenericListItem(Of String) = CType(CBComport.SelectedItem, GenericListItem(Of String))
-        Try
+        If (CANShieldType = can2usbDLL.can2usb.ShieldType.PiCAN2) Then
+            ConnectToECU(TBIpaddress.Text, TBTCPPort.Text, CANSpeed, CANShieldType)
+        Else
+            Dim oComPortName As GenericListItem(Of String) = CType(CBComport.SelectedItem, GenericListItem(Of String))
             Me.ComPortName = oComPortName.Value.ToString
-        Catch ex As Exception
-            MessageBox.Show("You have not selected a COM Port", "Invalid COM Port", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
-            Exit Sub
-        End Try
-        If Me.ComPortName <> "" Then
             ConnectToECU(Me.ComPortName, CANSpeed, CANShieldType)
-            ReadCalibrationDetail()
-            Form1.UpdateControls()
-            'DisconnectFromECU()
         End If
+
+        ReadCalibrationDetail()
+        Form1.UpdateControls()
     End Sub
 
 
@@ -85,9 +81,9 @@ Public Class ECUConnect
         ECU.Adapter.Disconnect()
     End Sub
 
-    '
-    ' open serial port, query adapter version, probe access level
-    '
+    '************************************************************************
+    '* SERIAL / open serial port, query adapter version, probe access level
+    '************************************************************************
     Public Sub ConnectToECU(ByVal ThisComPortName As String, ByVal speed As Integer, ByVal shield As Integer)
         ' reset form elements
         ECU.AccessLevel = ECUAccessLevel.Unknown
@@ -121,6 +117,46 @@ Public Class ECUConnect
             MessageBox.Show("You have not selected a COM Port, or the stored COM Port is not available at this time." _
                             & vbCrLf & "Please make sure that the adapter is connected to this computer, and that the igntion is turned on",
                             "Invalid COM Port", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
+            ChkBECUAutoConnect.Checked = False
+        End If
+    End Sub
+
+    '************************************************************************
+    '* TCPIP / open serial port, query adapter version, probe access level
+    '************************************************************************
+    Public Sub ConnectToECU(ByVal IPAddress As String, ByVal TCPPort As Integer, ByVal speed As Integer, ByVal shield As Integer)
+        ' reset form elements
+        ECU.AccessLevel = ECUAccessLevel.Unknown
+        UpdateAccessTypeLabel()
+        TBAdapterVersion.Text = ""
+        LblCalibrationDetail.Text = ""
+        TBAdapterVersion.BackColor = Color.LightGray
+
+        If IPAddress <> "" And TCPPort <> 0 Then
+            If (ECU.Adapter.Connect(IPAddress, TCPPort) = True) Then
+                Console.WriteLine("ConnectToECU() Speed = " & speed)
+                Console.WriteLine("ConnectToECU() ShieldType = " & shield)
+                ECU.Adapter.Init(speed, shield)
+                Dim AdapterVersion = ECU.Adapter.GetVersion()
+                If (AdapterVersion IsNot Nothing) Then
+                    TBAdapterVersion.Text = AdapterVersion
+                    If (ECUProbeLevels()) Then
+                        TBAdapterVersion.BackColor = Color.LightGreen
+                        ' save CAN speed setting in registry / speed is ok (we could read memory, or OBD)
+                        Form1.T4eReg.SetECUCANSpeed(speed)
+                        Form1.T4eReg.SetECUCANShieldType(shield)
+                    End If
+                    ' save comport setting in registry / adaper is ok (we could read version)                    
+                    Form1.T4eReg.SetECUIPAddress(IPAddress)
+                    Form1.T4eReg.SetECUTCPPort(TCPPort)
+                End If
+            Else
+                Me.Show()
+            End If
+        Else
+            MessageBox.Show("You have not specified a valid IP Address and TCP Port." _
+                            & vbCrLf & "Please make sure that the adapter is reachable on the given IP Address and TCP Port",
+                            "Invalid IP Address or TCP Port", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
             ChkBECUAutoConnect.Checked = False
         End If
     End Sub
@@ -254,7 +290,8 @@ Public Class ECUConnect
         ' set IPAddress, TCPPort to stored settings
         ''''''''''''''''''''''''''''''''''''''''''''
         TBIpaddress.Text = Form1.T4eReg.GetECUIPAddress
-        TBTCPPort.Text = 
+        TBTCPPort.Text = Form1.T4eReg.GetECUTCPPort
+
         ''''''''''''''''''''''''''''''''''''''''''''''''''
         ' set Flag that tells to reset Arduino on connect
         ''''''''''''''''''''''''''''''''''''''''''''''''''

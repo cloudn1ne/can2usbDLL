@@ -61,15 +61,10 @@ Public Class AsyncSocket
         Dim obj_Socket As Socket = m_tmpSocket
 
         Try
-
             obj_Socket.BeginConnect(hostEndPoint, New AsyncCallback(AddressOf onConnectionComplete), obj_Socket)
-
         Catch ex As Exception
-
             MsgBox("AsyncSocket:  Connect() error " & ex.Message)
-
         End Try
-
     End Sub
 
     Private Sub onConnectionComplete(ByVal ar As IAsyncResult)
@@ -82,7 +77,6 @@ Public Class AsyncSocket
         Dim obj_SocketState As New StateObject
         obj_SocketState.WorkSocket = obj_Socket
         obj_Socket.BeginReceive(obj_SocketState.Buffer, 0, obj_SocketState.BufferSize, 0, New AsyncCallback(AddressOf onDataArrival), obj_SocketState)
-
     End Sub
 
     Private Sub onDataArrival(ByVal ar As IAsyncResult)

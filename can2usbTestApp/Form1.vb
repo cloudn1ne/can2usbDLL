@@ -67,7 +67,11 @@ Public Class Form1
         LblCopyright.Text = "V " & Application.ProductVersion & " (c) cn@warp.at, 2016"
         If (T4eReg.GetECUAutoConnect) Then
             If (Not ECU.Adapter.isConnected) Then
-                ECUConnect.ConnectToECU(T4eReg.GetECUComPort, T4eReg.GetECUCANSpeed, T4eReg.GetECUCANShieldType)
+                If (T4eReg.GetECUCANShieldType = can2usbDLL.can2usb.ShieldType.PiCAN2) Then
+                    ECUConnect.ConnectToECU(T4eReg.GetECUIPAddress, T4eReg.GetECUTCPPort, T4eReg.GetECUCANSpeed, T4eReg.GetECUCANShieldType)
+                Else
+                    ECUConnect.ConnectToECU(T4eReg.GetECUComPort, T4eReg.GetECUCANSpeed, T4eReg.GetECUCANShieldType)
+                End If
                 UpdateControls()
             End If
         End If
