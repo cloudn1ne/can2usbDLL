@@ -97,7 +97,7 @@ Public Class ECUConnect
         TBAdapterVersion.BackColor = Color.LightGray
 
         If ThisComPortName <> "" Then
-            If (ECU.Adapter.Connect(ThisComPortName, CANReset, shield) = True) Then
+            If (ECU.Adapter.Connect(ThisComPortName, CANReset) = True) Then
                 Console.WriteLine("ConnectToECU() Speed = " & speed)
                 Console.WriteLine("ConnectToECU() ShieldType = " & shield)
                 ECU.Adapter.Init(speed, shield)
@@ -191,6 +191,7 @@ Public Class ECUConnect
         CBShieldType.Items.Clear()
         CBShieldType.Items.Add(New GenericListItem(Of Integer)("SparkFun", can2usbDLL.can2usb.ShieldType.SparkFun))
         CBShieldType.Items.Add(New GenericListItem(Of Integer)("SeedStudio", can2usbDLL.can2usb.ShieldType.SeedStudio))
+        CBShieldType.Items.Add(New GenericListItem(Of Integer)("PiCAN2", can2usbDLL.can2usb.ShieldType.PiCAN2))
         LoadSetup()
         LblAccessType.Text = ""
         LblCalibrationDetail.Text = ""

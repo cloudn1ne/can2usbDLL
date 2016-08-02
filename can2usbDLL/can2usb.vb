@@ -88,9 +88,9 @@ Public Class can2usb
     End Function
 
     '*****************************************************
-    '* Connect to USB_CAN adapter
+    '* Connect to USB adapter
     '*****************************************************
-    Public Function Connect(ByVal COMPortName As String, ByVal ResetArduino As Boolean, ByVal shield As Integer) As Boolean
+    Public Function Connect(ByVal COMPortName As String, ByVal ResetArduino As Boolean) As Boolean
         If (COMPortName Is Nothing) Then
             Return (False)
         End If
@@ -98,41 +98,53 @@ Public Class can2usb
             Me.Disconnect()
         End If
         Try
-            If (shield = ShieldType.PiCAN2) Then
-                UsingSerial = False
-                ShieldTimeout = 200
-                tcpClient = New AsyncSocket
-                ' Next 3 lines for possible later implementation, if needed
-                'tcpClient.NoDelay = True
-                'tcpClient.ReceiveTimeout = ShieldTimeout
-                'tcpClient.SendTimeout = ShieldTimeout
-                tcpClient.Connect("192.168.1.157", 8069)
-            Else
-                ComPort = New SerialPort
-                With ComPort
-                    .PortName = COMPortName
-                    .BaudRate = 115200
-                    .Parity = IO.Ports.Parity.None
-                    .DataBits = 8
-                    .StopBits = IO.Ports.StopBits.One
-                    .Handshake = IO.Ports.Handshake.XOnXOff
-                    If ResetArduino Then
-                        .DtrEnable = True
-                    Else
-                        .DtrEnable = False
-                    End If
-                    .Encoding = System.Text.Encoding.ASCII
-                    .NewLine = vbCrLf
-                    .ReadTimeout = ShieldTimeout
-                    .ReadBufferSize = 1000
-                    .ReceivedBytesThreshold = 1   'threshold: one byte in buffer > event is fired                           
-                End With
-                AddHandler ComPort.DataReceived, New SerialDataReceivedEventHandler(AddressOf ComPort_DataReceived)
-                ComPort.Open()
+            ComPort = New SerialPort
+            With ComPort
+                .PortName = COMPortName
+                .BaudRate = 115200
+                .Parity = IO.Ports.Parity.None
+                .DataBits = 8
+                .StopBits = IO.Ports.StopBits.One
+                .Handshake = IO.Ports.Handshake.XOnXOff
                 If ResetArduino Then
-                    Thread.Sleep(2000)
+                    .DtrEnable = True
+                Else
+                    .DtrEnable = False
                 End If
+                .Encoding = System.Text.Encoding.ASCII
+                .NewLine = vbCrLf
+                .ReadTimeout = ShieldTimeout
+                .ReadBufferSize = 1000
+                .ReceivedBytesThreshold = 1   'threshold: one byte in buffer > event is fired                           
+            End With
+            AddHandler ComPort.DataReceived, New SerialDataReceivedEventHandler(AddressOf ComPort_DataReceived)
+            ComPort.Open()
+            If ResetArduino Then
+                Thread.Sleep(2000)
             End If
+            Me.is_open = True
+        Catch ex As Exception
+            Return (False)
+        End Try
+        Return (True)
+    End Function
+
+    '*****************************************************
+    '* Connect to TCP adapter
+    '*****************************************************
+    Public Function Connect(ByVal IpAddress As String, ByVal Port As Integer) As Boolean
+        If (Me.is_open) Then
+            Me.Disconnect()
+        End If
+        Try
+            UsingSerial = False
+            ShieldTimeout = 200
+            tcpClient = New AsyncSocket
+            ' Next 3 lines for possible later implementation, if needed
+            'tcpClient.NoDelay = True
+            'tcpClient.ReceiveTimeout = ShieldTimeout
+            'tcpClient.SendTimeout = ShieldTimeout
+            tcpClient.Connect(IpAddress, Port)
             Me.is_open = True
         Catch ex As Exception
             Return (False)
@@ -403,11 +415,9 @@ Public Class can2usb
         If ComPort.IsOpen Then
             Try
                 Dim buf_len As Integer = buf.Length
-
                 Dim ser_len As Integer
 
                 ser_len = ComPort.BytesToRead
-
 #If DBG_RX_IN Then
                 If (buf_len > 0) Then
                     msg_str = ""
@@ -525,6 +535,7 @@ Public Class can2usb
             End Try
         End If
     End Sub
+
     '*****************************************************
     '* Called when new data arrives on the TCP socket
     '* analyze serial data for valid messages
@@ -663,6 +674,7 @@ Public Class can2usb
         Me.Disconnect()
         'Console.WriteLine("Socket closed properly.")
     End Sub
+
     '*****************************************************
     '* Send CAN request (no waiting)
     '*****************************************************
