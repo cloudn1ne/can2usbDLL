@@ -231,13 +231,6 @@ Public Class Form1
         Else
             TextBox1.Text &= "no reply to OBD query" & vbCrLf
         End If
-        b = ECU.ECUQueryOBD(&H9, &H2)
-        '        PrintCANMessageBuffers()
-        If (b IsNot Nothing) Then
-            TextBox1.Text &= System.Text.Encoding.ASCII.GetString(b) & vbCrLf
-        Else
-            TextBox1.Text &= "no reply to OBD query" & vbCrLf
-        End If
     End Sub
 
     '*****************************************************
