@@ -138,13 +138,14 @@ Public Class can2usb
         End If
         Try
             UsingSerial = False
-            ShieldTimeout = 200
+            ShieldTimeout = 500
             tcpClient = New AsyncSocket
             ' Next 3 lines for possible later implementation, if needed
             'tcpClient.NoDelay = True
             'tcpClient.ReceiveTimeout = ShieldTimeout
             'tcpClient.SendTimeout = ShieldTimeout
             tcpClient.Connect(IpAddress, Port)
+            Thread.Sleep(1000)
             Me.is_open = True
         Catch ex As Exception
             Return (False)
@@ -382,7 +383,7 @@ Public Class can2usb
         Dim c As Integer = ShieldTimeout
 
         If ShieldTimeout > 100 Then
-            c = num * 50
+            c = num * ShieldTimeout
         End If
         sw.Reset()
         sw.Start()
