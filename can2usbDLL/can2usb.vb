@@ -142,7 +142,7 @@ Public Class can2usb
             'sw.AutoFlush = True
             'Console.SetOut(sw)
             UsingSerial = False
-            ShieldTimeout = 133 * 2
+            ShieldTimeout = 133 * 50
             tcpClient = New AsyncSocket
             ' Next 2 lines for possible later implementation, if needed
             'tcpClient.ReceiveTimeout = ShieldTimeout
