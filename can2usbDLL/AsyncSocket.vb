@@ -23,7 +23,7 @@ Imports System.Net.Sockets
 Public Class StateObject
 
     Public WorkSocket As Socket = Nothing
-    Public BufferSize As Integer = 32768
+    Public BufferSize As Integer = 1024
     Public Buffer(BufferSize) As Byte
     'Public StrBuilder As New StringBuilder
 
@@ -33,9 +33,9 @@ Public Class AsyncSocket
 
     Private m_SocketID As String
     Private m_tmpSocket As Socket
-    Private m_recBuffer As String
+    'Private m_recBuffer As String
     Public IsOpen As Boolean = False
-    Public MoreClean As Boolean = False
+    'Public MoreClean As Boolean = False
     Public Event socketDisconnected(ByVal SocketID As String)
     Public Event socketDataArrival(ByVal SocketID As String, ByVal SocketData As Byte(), ByVal DataLen As Integer)
     'Public Event socketConnected(ByVal SocketID As String)
@@ -61,10 +61,22 @@ Public Class AsyncSocket
         Dim obj_Socket As Socket = m_tmpSocket
 
         Try
-            obj_Socket.BeginConnect(hostEndPoint, New AsyncCallback(AddressOf onConnectionComplete), obj_Socket)
+
+            'obj_Socket.BeginConnect(hostEndPoint, New AsyncCallback(AddressOf onConnectionComplete), obj_Socket)
+            'Next 5 lines replace the one above + onConnectionComplete
+            obj_Socket.Connect(hostEndPoint)
+            obj_Socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.NoDelay, True)
+            IsOpen = True
+            Dim obj_SocketState As New StateObject
+            obj_SocketState.WorkSocket = obj_Socket
+            obj_Socket.BeginReceive(obj_SocketState.Buffer, 0, obj_SocketState.BufferSize, 0, New AsyncCallback(AddressOf onDataArrival), obj_SocketState)
+
         Catch ex As Exception
+
             MsgBox("AsyncSocket:  Connect() error " & ex.Message)
+
         End Try
+
     End Sub
 
     Private Sub onConnectionComplete(ByVal ar As IAsyncResult)
@@ -77,6 +89,7 @@ Public Class AsyncSocket
         Dim obj_SocketState As New StateObject
         obj_SocketState.WorkSocket = obj_Socket
         obj_Socket.BeginReceive(obj_SocketState.Buffer, 0, obj_SocketState.BufferSize, 0, New AsyncCallback(AddressOf onDataArrival), obj_SocketState)
+
     End Sub
 
     Private Sub onDataArrival(ByVal ar As IAsyncResult)
@@ -93,7 +106,7 @@ Public Class AsyncSocket
             'Start recieving again
             obj_Socket.BeginReceive(obj_SocketState.Buffer, 0, obj_SocketState.BufferSize, 0, New AsyncCallback(AddressOf onDataArrival), obj_SocketState)
 
-        Catch e As Exception
+        Catch ex As Exception
 
             RaiseEvent socketDisconnected(m_SocketID)
 
@@ -109,6 +122,7 @@ Public Class AsyncSocket
             obj_StateObject.WorkSocket = m_tmpSocket
             Dim Buffer As Byte() = Encoding.ASCII.GetBytes(tmp_Data)
             m_tmpSocket.BeginSend(Buffer, 0, Buffer.Length, 0, New AsyncCallback(AddressOf onSendComplete), obj_StateObject)
+            'm_tmpSocket.Send(Buffer, 0, Buffer.Length, 0)
 
         Catch ex As Exception
 
