@@ -1,8 +1,8 @@
-﻿'*******************************************************************************
+﻿'*********************************************************************************************
 '* can2usb dll for arduino/genuino + sparkfun/seedstudio shield or raspberry pi + pican2
-'* version 1.0
-'* (c) Georg Swoboda 2016 <cn@warp.at>
-'*******************************************************************************
+'* version 1.1
+'* (c) Georg Swoboda 2016 <cn@warp.at>, Robert Baizer
+'*********************************************************************************************
 Imports System
 Imports System.Threading
 Imports System.IO.Ports
@@ -31,7 +31,10 @@ Public Class can2usb
 
     '   Public Shared recv_buffer As String = ""
     Private buf() As Byte = New Byte() {}
-    Private START_PATTERN() As Byte = System.Text.Encoding.ASCII.GetBytes("$F")
+    Private START_PATTERN_VER() As Byte = System.Text.Encoding.ASCII.GetBytes("$VER")
+    Private START_PATTERN_CANRX() As Byte = System.Text.Encoding.ASCII.GetBytes("$F")
+    Private START_PATTERN_KLINERX() As Byte = System.Text.Encoding.ASCII.GetBytes("$K")
+    Private END_PATTERN() As Byte = System.Text.Encoding.ASCII.GetBytes(vbCrLf)
 
     ' Triggering
     Private TriggerEvent = New EventWaitHandle(False, EventResetMode.AutoReset)
@@ -57,6 +60,12 @@ Public Class can2usb
     Private Shared CANMessageIDTriggerCounter As Integer
     Private Shared CANMessageIDTriggerFlag As Boolean = False
 
+    ' K-Line Message Handling
+    Public ReadOnly MaxKLINEMessageBufferSize As Integer = 16
+    Private KLINEMessagesIdx As Integer = 0
+    Private Shared KLINEMessages(16) As KLINEMessage
+    Private KLINEMessagesOverrun As Boolean = True
+
     ' CAN shield types
     Public Enum ShieldType As Integer
         SparkFun = 1
@@ -69,6 +78,14 @@ Public Class can2usb
         Dim id As Integer
         Dim len As Integer
         Dim data() As Byte
+        Dim used As Boolean
+    End Structure
+
+    ' K-Line message structure
+    Structure KLINEMessage
+        Dim len As Integer
+        Dim data() As Byte
+        Dim crc As Byte
         Dim used As Boolean
     End Structure
 
@@ -170,6 +187,38 @@ Public Class can2usb
     End Sub
 
     '*****************************************************
+    '* Reset KLINEMessages buffer handling 
+    '*****************************************************
+    Public Sub ResetKLINEMessages()
+        SyncLock (KLINEMessages)
+            For i As Integer = 0 To KLINEMessages.Length - 1
+                KLINEMessages(i).used = False
+            Next
+        End SyncLock
+        Interlocked.Exchange(KLINEMessagesIdx, 0)
+        Interlocked.Exchange(KLINEMessagesOverrun, False)
+    End Sub
+
+    '*****************************************************
+    '* Add one KLINEMessage to KLINEMessages array
+    '*****************************************************
+    Private Sub AddKLINEMessage(ByRef kmsg As KLINEMessage)
+        'Dim oldsize As Integer = 0
+
+        'Console.WriteLine("AddCANMessage()")
+        SyncLock (KLINEMessages)
+            KLINEMessages(Interlocked.Read(KLINEMessagesIdx)) = kmsg
+            If (Interlocked.Read(KLINEMessagesIdx) < KLINEMessages.Length - 2) Then
+                Interlocked.Increment(KLINEMessagesIdx)
+            Else
+                ' indicate overun of buffer                
+                Interlocked.Exchange(KLINEMessagesOverrun, True)
+            End If
+            'Console.WriteLine("AddCANMessage() done" & CANMessagesIdx & " " & CANMessages.Length)
+        End SyncLock
+    End Sub
+
+    '*****************************************************
     '* Reset CANMessages buffer handling 
     '*****************************************************
     Public Sub ResetCANMessages()
@@ -200,7 +249,6 @@ Public Class can2usb
             End If
             'Console.WriteLine("AddCANMessage() done" & CANMessagesIdx & " " & CANMessages.Length)
         End SyncLock
-
     End Sub
 
     '*****************************************************
@@ -333,7 +381,6 @@ Public Class can2usb
     '******************************************************************
     Private Function WaitForCANMessageIDTrigger() As Boolean
         Dim sw As New Stopwatch
-        Dim b As Boolean
 
         sw.Reset()
         sw.Start()
@@ -381,7 +428,6 @@ Public Class can2usb
     '**************************************************************************
     Private Function WaitForNumOfCANMessageIDTriggers(ByVal num As Integer) As Boolean
         Dim sw As New Stopwatch
-        Dim b As Boolean
         Dim c As Integer = ShieldTimeout
 
         If ShieldTimeout > 100 Then
@@ -407,6 +453,36 @@ Public Class can2usb
 #End If
         Return (True)
     End Function
+
+    Private Function ExtractMessage(ByRef buf, ByRef str_start) As Byte()
+        Dim str_end As Integer = 0
+        Dim buf_copy() As Byte = {}
+        Dim msg() As Byte = Nothing
+
+        ' make a working copy of buf()
+        Array.Resize(buf_copy, buf.length)
+        Array.Copy(buf, buf_copy, buf.length)
+
+        ' find end pattern \r\n
+        str_end = SearchBytePattern(END_PATTERN, buf, str_start)
+        If (str_start < str_end) Then ' start and end found in buf, extract msg and cut out of buffer
+            Array.Copy(buf_copy, buf, buf.length - str_start)                   ' leading part
+            Array.Copy(buf_copy, str_end, buf, str_start, buf.length - str_end) ' trailing part 
+            Array.Copy(buf_copy, str_start, msg, 0, str_end - str_start)        ' copy extracted message itself
+        End If
+        Return (msg)
+    End Function
+
+    Private Sub ExtractKnownMessages(ByRef buf)
+        Dim s As Integer = 0
+        Dim msg() As Byte = Nothing
+
+        s = SearchBytePattern(START_PATTERN_VER, buf, s)
+        While (s > -1)
+            msg = ExtractMessage(buf, s)
+            s = SearchBytePattern(START_PATTERN_VER, buf, s)
+        End While
+    End Sub
 
     '*****************************************************
     '* Called when new data arrives on the SerialPort
@@ -438,7 +514,6 @@ Public Class can2usb
                 ' make space for new data in buf()
                 Array.Resize(buf, buf_len + ser_len)
                 ' append data from ComPort to buf()
-
                 ComPort.Read(buf, buf_len, ser_len)
 
 #If DBG_RX_IN Then
@@ -448,13 +523,14 @@ Public Class can2usb
                 Next
                 Console.WriteLine("received_str(" & buf.Length & "): " & msg_str & "")
 #End If
+                '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
                 ' try to extract CANMessages from buf
                 ' find '$F' marker                
-                Dim count As Integer = 0
-
+                ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+                ' Dim count As Integer = 0
                 copy_start_idx = 0
                 s = 0
-                s = SearchBytePattern(START_PATTERN, buf, s)
+                s = SearchBytePattern(START_PATTERN_CANRX, buf, s)
                 While (s > -1)
                     cmsg = ExtactCANMessage(buf, s)
                     If (cmsg.id >= 0) Then
@@ -466,11 +542,8 @@ Public Class can2usb
                         Next
                         Console.WriteLine("valid_msg(0x" & Hex(cmsg.id) & "/" & s & ") " & msg_str)
 #End If
-                        ' message decoded fine, store for later use                        
-                        AddCANMessage(cmsg)
-                        ' probe trigger id and set flag if matched
-                        'SyncLock (CANMessageIDTriggerInterlock)
-                        If (cmsg.id = Interlocked.Read(CANMessageIDTriggerID)) Then
+                        AddCANMessage(cmsg) ' message decoded fine, store for later use
+                        If (cmsg.id = Interlocked.Read(CANMessageIDTriggerID)) Then ' probe trigger id and set flag if matched 
                             Interlocked.Exchange(CANMessageIDTriggerFlag, True)
                             Interlocked.Increment(CANMessageIDTriggerCounter)
                             TriggerEvent.Set()
@@ -478,31 +551,16 @@ Public Class can2usb
                             Console.WriteLine("CANMessageIDTriggerID() Matched")
 #End If
                         End If
-                        'End SyncLock
-                        count = count + 1
-                        'SyncLock (recv_buffer)
-                        ' recv_buffer &= CANMessageToString(cmsg)
-                        ' count = count + 1
-                        ' End SyncLock                        
+                        'count = count + 1
                         copy_start_idx = s + cmsg.len + 7
-                    Else
-                        'Console.WriteLine("invalid message hit " & cmsg.id)
-                        ' something wrong with that message so save for next round of processing
+                    Else ' there was an error extracting the CAN message
                         If (cmsg.id < 0) Then
-                            ' CRC Error
-                            If (cmsg.id = -4) Then
+                            If (cmsg.id = -4) Then  ' CRC Error
                                 Interlocked.Increment(StatRXCRCErrors)
                             End If
-                            ' Short message error
-                            If (cmsg.id = -3) Then
+                            If (cmsg.id = -3) Then  ' Short message error
                                 Interlocked.Increment(StatRXShortMsgErrors)
                             End If
-                            'If (cmsg.id = -2) Then
-                            'Console.WriteLine("-2 status")
-                            'End If
-                            '   If (cmsg.id = -1) Then
-                            'Console.WriteLine("-1 status")
-                            'End If
 #If DBG_RX_ERR4 Then
                             msg_str = ""
                             For i = s To buf.Length - 1 ' s + 14
@@ -512,10 +570,8 @@ Public Class can2usb
 #End If
                         End If
                         copy_start_idx = s
-                        '    Exit While
                     End If
-                    ' find the next pattern
-                    s = SearchBytePattern(START_PATTERN, buf, s + START_PATTERN.Length)
+                    s = SearchBytePattern(START_PATTERN_CANRX, buf, s + START_PATTERN_CANRX.Length) ' find the next pattern
                 End While
 
                 'Console.WriteLine("extracted " & count & " messages")
@@ -542,6 +598,7 @@ Public Class can2usb
             End Try
         End If
     End Sub
+
     Private Function getValue(ByRef o As Integer)
         SyncLock (CANMessageIDTriggerInterlock)
             Return Interlocked.Read(o)
@@ -557,6 +614,7 @@ Public Class can2usb
             Interlocked.Exchange(o, v)
         End SyncLock
     End Sub
+
     '*****************************************************
     '* Called when new data arrives on the TCP socket
     '* analyze serial data for valid messages
@@ -601,7 +659,7 @@ Public Class can2usb
 
                 copy_start_idx = 0
                 s = 0
-                s = SearchBytePattern(START_PATTERN, buf, s)
+                s = SearchBytePattern(START_PATTERN_CANRX, buf, s)
                 While (s > -1)
                     cmsg = ExtactCANMessage(buf, s)
                     If (cmsg.id >= 0) Then
@@ -662,7 +720,7 @@ Public Class can2usb
                         '    Exit While
                     End If
                     ' find the next pattern
-                    s = SearchBytePattern(START_PATTERN, buf, s + START_PATTERN.Length)
+                    s = SearchBytePattern(START_PATTERN_CANRX, buf, s + START_PATTERN_CANRX.Length)
                 End While
 
                 'Console.WriteLine("extracted " & count & " messages")
@@ -691,10 +749,12 @@ Public Class can2usb
         End If
     End Sub
 
+    '*****************************************************
+    '* Close TCP connection
+    '*****************************************************
     Private Sub tcpClient_socketDisconnected(ByVal SocketID As String) Handles tcpClient.socketDisconnected
         tcpClient.IsOpen = False
         Me.Disconnect()
-        'Console.WriteLine("Socket closed properly.")
     End Sub
 
     '*****************************************************
@@ -938,13 +998,11 @@ Public Class can2usb
         Dim matches As Integer = -1
         Dim i, j As Integer
         Dim ismatch As Boolean
-        ' precomputing this shaves some seconds from the loop execution
-        Dim maxloop As Integer = Bytes.Length - pattern.Length
+        Dim maxloop As Integer = Bytes.Length - pattern.Length      ' precomputing this shaves some seconds from the loop execution
 
         'Console.WriteLine("maxloop: " & maxloop)
         For i = start To maxloop - 1
-            ' first byte in pattern matches in Bytes
-            If (pattern(0) = Bytes(i)) Then
+            If (pattern(0) = Bytes(i)) Then         ' first byte in pattern matches in Bytes
                 ismatch = True
                 For j = 1 To pattern.Length - 1
                     If (Bytes(i + j) <> pattern(j)) Then
@@ -1011,7 +1069,7 @@ Public Class can2usb
     '* Return adapter version
     '*****************************************************
     Public Function GetVersion() As String
-        Return ("can2usb-1.1")
+        Return ("can2usb-1.2")
     End Function
 
     '*****************************************************
@@ -1033,6 +1091,21 @@ Public Class can2usb
         End If
         Return (False)
     End Function
+
+
+    '*****************************************************
+    '* Trigger K-Line Stage2 Bootloader catch routine
+    '*****************************************************
+    Public Function KLineCatchStage2() As Boolean
+        If (UsingSerial AndAlso ComPort.IsOpen) Then
+            Dim query As String = ""
+            query = "$B2" & vbCrLf
+            ComPort.Write(query)
+            Return (True)
+        End If
+        Return (False)
+    End Function
+
 End Class
 
 
