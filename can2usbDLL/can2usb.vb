@@ -21,8 +21,8 @@ Imports System.IO
 
 Public Class can2usb
 
-    'Private fs As FileStream
-    'Private sw As StreamWriter
+    Private fs As FileStream
+    Private sw As StreamWriter
 
     Private ComPort As SerialPort
     Private WithEvents tcpClient As AsyncSocket
@@ -52,7 +52,7 @@ Public Class can2usb
     Private CANMessagesIdx As Integer = 0
     Private Shared CANMessages(64) As CANMessage
     Private CANMessagesOverrun As Boolean = True
-    Private Shared CANMessageIDTriggerInterlock As New Object
+    'Private CANMessageIDTriggerInterlock As New Object
     Private Shared CANMessageIDTriggerID As Integer
     Private Shared CANMessageIDTriggerCounter As Integer
     Private Shared CANMessageIDTriggerFlag As Boolean = False
@@ -137,14 +137,11 @@ Public Class can2usb
             Me.Disconnect()
         End If
         Try
-            'fs = New FileStream("comlog.txt", FileMode.Create)
-            'sw = New StreamWriter(fs)
-            'sw.AutoFlush = True
-            'Console.SetOut(sw)
             UsingSerial = False
-            ShieldTimeout = 32767
+            ShieldTimeout = 200
             tcpClient = New AsyncSocket
-            ' Next 2 lines for possible later implementation, if needed
+            ' Next 3 lines for possible later implementation, if needed
+            'tcpClient.NoDelay = True
             'tcpClient.ReceiveTimeout = ShieldTimeout
             'tcpClient.SendTimeout = ShieldTimeout
             tcpClient.Connect(IpAddress, Port)
@@ -312,9 +309,9 @@ Public Class can2usb
     '*****************************************************
     '* return the CAN Message ID Trigger counter
     '*****************************************************
-    Public Function GetCANMessageIDTriggerCounter() As Integer
+    Public Function GetCANMessageIDTriggerCounter() As Boolean
         Dim c As Integer
-        c = getValue(CANMessageIDTriggerCounter)
+        c = Interlocked.Read(CANMessageIDTriggerCounter)
         Return (c)
     End Function
 
@@ -323,7 +320,7 @@ Public Class can2usb
     '*****************************************************
     Private Sub ResetCANMessageIDTrigger()
         Interlocked.Exchange(CANMessageIDTriggerFlag, False)
-        setValue(CANMessageIDTriggerCounter, 0)
+        Interlocked.Exchange(CANMessageIDTriggerCounter, 0)
     End Sub
 
     '******************************************************************
@@ -339,7 +336,7 @@ Public Class can2usb
         sw.Start()
         While (Interlocked.Read(CANMessageIDTriggerFlag) = False)
             TriggerEvent.WaitOne(New TimeSpan(0, 0, 1))
-            If UsingSerial AndAlso (sw.ElapsedMilliseconds > ShieldTimeout) Then
+            If (sw.ElapsedMilliseconds > ShieldTimeout) Then
 #If DBG_ID_TRIGGER_TO Then
                 Console.WriteLine("WaitForCANMessageIDTrigger(0x" & Hex(CANMessageIDTriggerID) & ") - timeout")
 #End If
@@ -382,15 +379,18 @@ Public Class can2usb
     Private Function WaitForNumOfCANMessageIDTriggers(ByVal num As Integer) As Boolean
         Dim sw As New Stopwatch
         Dim b As Boolean
-        Dim c As Integer
+        Dim c As Integer = ShieldTimeout
 
+        If ShieldTimeout > 100 Then
+            c = num * 50
+        End If
         sw.Reset()
         sw.Start()
-        While (getValue(CANMessageIDTriggerCounter) < num)
-            If UsingSerial AndAlso (sw.ElapsedMilliseconds > ShieldTimeout) Then
+        While (Interlocked.Read(CANMessageIDTriggerCounter) < num)
+            If (sw.ElapsedMilliseconds > c) Then
 #If DBG_ID_TRIGGER_TO Then
-                Console.WriteLine("WaitForNumOfCANMessageIDTriggers(0x" & Hex(CANMessageIDTriggerID) & ") - TIMEOUT")
-                Console.WriteLine(d & "/" & num & " in " & sw.ElapsedMilliseconds & " ms")
+                'Console.WriteLine("WaitForNumOfCANMessageIDTriggers(0x" & Hex(CANMessageIDTriggerID) & ") - timeout")
+                'Console.WriteLine(c & "/" & num)
                 'Console.WriteLine("TIMEOUT")
 #End If
                 Interlocked.Increment(StatRXWaitForIDTimeouts)
@@ -398,10 +398,6 @@ Public Class can2usb
             End If
             TriggerEvent.WaitOne(New TimeSpan(0, 0, 0, 0, 1))
         End While
-#If DBG_ID_TRIGGER_TO Then
-        Console.WriteLine("WaitForNumOfCANMessageIDTriggers(0x" & Hex(CANMessageIDTriggerID) & ") - Success")
-        Console.WriteLine(getValue(CANMessageIDTriggerCounter) & "/" & num & " in " & sw.ElapsedMilliseconds & " ms")
-#End If
         Return (True)
     End Function
 
@@ -539,21 +535,7 @@ Public Class can2usb
             End Try
         End If
     End Sub
-    Private Function getValue(ByRef o As Integer)
-        SyncLock (CANMessageIDTriggerInterlock)
-            Return Interlocked.Read(o)
-        End SyncLock
-    End Function
-    Private Sub incValue(ByRef o As Integer)
-        SyncLock (CANMessageIDTriggerInterlock)
-            Interlocked.Increment(o)
-        End SyncLock
-    End Sub
-    Private Sub setValue(ByRef o As Integer, ByVal v As Integer)
-        SyncLock (CANMessageIDTriggerInterlock)
-            Interlocked.Exchange(o, v)
-        End SyncLock
-    End Sub
+
     '*****************************************************
     '* Called when new data arrives on the TCP socket
     '* analyze serial data for valid messages
@@ -616,7 +598,7 @@ Public Class can2usb
                         'SyncLock (CANMessageIDTriggerInterlock)
                         If (cmsg.id = Interlocked.Read(CANMessageIDTriggerID)) Then
                             Interlocked.Exchange(CANMessageIDTriggerFlag, True)
-                            incValue(CANMessageIDTriggerCounter)
+                            Interlocked.Increment(CANMessageIDTriggerCounter)
                             TriggerEvent.Set()
 #If DBG_ID_TRIGGER Then
                             Console.WriteLine("CANMessageIDTriggerID() Matched")
@@ -682,7 +664,6 @@ Public Class can2usb
                 End If
                 Array.Resize(buf, copy_len)
             Catch ex As Exception
-                MsgBox(ex.Message & vbCrLf & ex.StackTrace)
                 Exit Sub
             End Try
         End If
@@ -739,13 +720,11 @@ Public Class can2usb
                     query &= vbCrLf
                     If UsingSerial Then
                         ComPort.Write(query)
-                        'Console.WriteLine("SendAndWaitForCANMessageID()" & query)
-                        r = WaitForCANMessageIDTrigger()
                     Else
                         tcpClient.Send(query)
-                        'Console.WriteLine("SendAndWaitForCANMessageID()" & query)
-                        r = WaitForCANMessageIDTrigger(1000)
                     End If
+                    'Console.WriteLine("SendAndWaitForCANMessageID()" & query)
+                    r = WaitForCANMessageIDTrigger()
                 End If
             End If
         End If
