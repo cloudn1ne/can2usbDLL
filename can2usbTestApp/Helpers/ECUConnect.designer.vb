@@ -24,6 +24,10 @@ Partial Class ECUConnect
     Private Sub InitializeComponent()
         Me.components = New System.ComponentModel.Container()
         Me.GroupBox1 = New System.Windows.Forms.GroupBox()
+        Me.TBTCPPort = New System.Windows.Forms.TextBox()
+        Me.Label8 = New System.Windows.Forms.Label()
+        Me.TBIpaddress = New System.Windows.Forms.TextBox()
+        Me.Label6 = New System.Windows.Forms.Label()
         Me.CBReset = New System.Windows.Forms.CheckBox()
         Me.CBShieldType = New System.Windows.Forms.ComboBox()
         Me.Label4 = New System.Windows.Forms.Label()
@@ -42,10 +46,6 @@ Partial Class ECUConnect
         Me.CBComport = New System.Windows.Forms.ComboBox()
         Me.Label1 = New System.Windows.Forms.Label()
         Me.ToolTip = New System.Windows.Forms.ToolTip(Me.components)
-        Me.Label6 = New System.Windows.Forms.Label()
-        Me.TBIpaddress = New System.Windows.Forms.TextBox()
-        Me.Label8 = New System.Windows.Forms.Label()
-        Me.TBTCPPort = New System.Windows.Forms.TextBox()
         Me.GroupBox1.SuspendLayout()
         Me.SuspendLayout()
         '
@@ -79,6 +79,38 @@ Partial Class ECUConnect
         Me.GroupBox1.TabStop = False
         Me.GroupBox1.Text = "CAN adapter settings"
         '
+        'TBTCPPort
+        '
+        Me.TBTCPPort.Location = New System.Drawing.Point(260, 48)
+        Me.TBTCPPort.Name = "TBTCPPort"
+        Me.TBTCPPort.Size = New System.Drawing.Size(48, 20)
+        Me.TBTCPPort.TabIndex = 20
+        '
+        'Label8
+        '
+        Me.Label8.AutoSize = True
+        Me.Label8.Location = New System.Drawing.Point(203, 51)
+        Me.Label8.Name = "Label8"
+        Me.Label8.Size = New System.Drawing.Size(53, 13)
+        Me.Label8.TabIndex = 19
+        Me.Label8.Text = "TCP Port:"
+        '
+        'TBIpaddress
+        '
+        Me.TBIpaddress.Location = New System.Drawing.Point(97, 48)
+        Me.TBIpaddress.Name = "TBIpaddress"
+        Me.TBIpaddress.Size = New System.Drawing.Size(100, 20)
+        Me.TBIpaddress.TabIndex = 18
+        '
+        'Label6
+        '
+        Me.Label6.AutoSize = True
+        Me.Label6.Location = New System.Drawing.Point(6, 51)
+        Me.Label6.Name = "Label6"
+        Me.Label6.Size = New System.Drawing.Size(61, 13)
+        Me.Label6.TabIndex = 17
+        Me.Label6.Text = "IP Address:"
+        '
         'CBReset
         '
         Me.CBReset.AutoSize = True
@@ -108,10 +140,9 @@ Partial Class ECUConnect
         '
         'LblCalibrationDetail
         '
-        Me.LblCalibrationDetail.AutoSize = True
         Me.LblCalibrationDetail.Location = New System.Drawing.Point(94, 192)
         Me.LblCalibrationDetail.Name = "LblCalibrationDetail"
-        Me.LblCalibrationDetail.Size = New System.Drawing.Size(97, 13)
+        Me.LblCalibrationDetail.Size = New System.Drawing.Size(157, 13)
         Me.LblCalibrationDetail.TabIndex = 13
         Me.LblCalibrationDetail.Text = "LblCalibrationDetail"
         '
@@ -236,38 +267,6 @@ Partial Class ECUConnect
         Me.Label1.Size = New System.Drawing.Size(56, 13)
         Me.Label1.TabIndex = 0
         Me.Label1.Text = "COM Port:"
-        '
-        'Label6
-        '
-        Me.Label6.AutoSize = True
-        Me.Label6.Location = New System.Drawing.Point(6, 51)
-        Me.Label6.Name = "Label6"
-        Me.Label6.Size = New System.Drawing.Size(61, 13)
-        Me.Label6.TabIndex = 17
-        Me.Label6.Text = "IP Address:"
-        '
-        'TBIpaddress
-        '
-        Me.TBIpaddress.Location = New System.Drawing.Point(97, 48)
-        Me.TBIpaddress.Name = "TBIpaddress"
-        Me.TBIpaddress.Size = New System.Drawing.Size(100, 20)
-        Me.TBIpaddress.TabIndex = 18
-        '
-        'Label8
-        '
-        Me.Label8.AutoSize = True
-        Me.Label8.Location = New System.Drawing.Point(203, 51)
-        Me.Label8.Name = "Label8"
-        Me.Label8.Size = New System.Drawing.Size(53, 13)
-        Me.Label8.TabIndex = 19
-        Me.Label8.Text = "TCP Port:"
-        '
-        'TBTCPPort
-        '
-        Me.TBTCPPort.Location = New System.Drawing.Point(260, 48)
-        Me.TBTCPPort.Name = "TBTCPPort"
-        Me.TBTCPPort.Size = New System.Drawing.Size(48, 20)
-        Me.TBTCPPort.TabIndex = 20
         '
         'ECUConnect
         '

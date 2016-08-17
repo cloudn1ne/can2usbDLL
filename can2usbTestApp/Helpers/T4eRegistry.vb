@@ -42,7 +42,7 @@ Public Class T4eRegistry
     Public Function GetECUIPAddress() As String
         Dim setting As String
         Using Key As RegistryKey = My.Computer.Registry.CurrentUser.OpenSubKey(T4eRegistryPath)
-            setting = CStr(Key.GetValue("ECUIPAddress", "192.168.1.157"))
+            setting = CStr(Key.GetValue("ECUIPAddress", ""))
         End Using
         Return (setting)
     End Function

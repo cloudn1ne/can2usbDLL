@@ -137,12 +137,12 @@ Public Class can2usb
             Me.Disconnect()
         End If
         Try
-            'fs = New FileStream("C:\Users\Jacob\Source\Repos\T4e-ECU-Editor\bin\Debug\comlog.txt", FileMode.Create)
+            'fs = New FileStream("comlog.txt", FileMode.Create)
             'sw = New StreamWriter(fs)
             'sw.AutoFlush = True
             'Console.SetOut(sw)
             UsingSerial = False
-            ShieldTimeout = 133 * 50
+            ShieldTimeout = 32767
             tcpClient = New AsyncSocket
             ' Next 2 lines for possible later implementation, if needed
             'tcpClient.ReceiveTimeout = ShieldTimeout
@@ -339,7 +339,7 @@ Public Class can2usb
         sw.Start()
         While (Interlocked.Read(CANMessageIDTriggerFlag) = False)
             TriggerEvent.WaitOne(New TimeSpan(0, 0, 1))
-            If (sw.ElapsedMilliseconds > ShieldTimeout) Then
+            If UsingSerial AndAlso (sw.ElapsedMilliseconds > ShieldTimeout) Then
 #If DBG_ID_TRIGGER_TO Then
                 Console.WriteLine("WaitForCANMessageIDTrigger(0x" & Hex(CANMessageIDTriggerID) & ") - timeout")
 #End If
@@ -382,18 +382,15 @@ Public Class can2usb
     Private Function WaitForNumOfCANMessageIDTriggers(ByVal num As Integer) As Boolean
         Dim sw As New Stopwatch
         Dim b As Boolean
-        Dim c As Integer = ShieldTimeout
+        Dim c As Integer
 
-        If ShieldTimeout > 100 Then
-            c = (1 + num / 64) * ShieldTimeout
-        End If
         sw.Reset()
         sw.Start()
         While (getValue(CANMessageIDTriggerCounter) < num)
-            If (sw.ElapsedMilliseconds > c) Then
+            If UsingSerial AndAlso (sw.ElapsedMilliseconds > ShieldTimeout) Then
 #If DBG_ID_TRIGGER_TO Then
                 Console.WriteLine("WaitForNumOfCANMessageIDTriggers(0x" & Hex(CANMessageIDTriggerID) & ") - TIMEOUT")
-                Console.WriteLine(d & "/" & num & " in " & c & " ms")
+                Console.WriteLine(d & "/" & num & " in " & sw.ElapsedMilliseconds & " ms")
                 'Console.WriteLine("TIMEOUT")
 #End If
                 Interlocked.Increment(StatRXWaitForIDTimeouts)
@@ -742,11 +739,13 @@ Public Class can2usb
                     query &= vbCrLf
                     If UsingSerial Then
                         ComPort.Write(query)
+                        'Console.WriteLine("SendAndWaitForCANMessageID()" & query)
+                        r = WaitForCANMessageIDTrigger()
                     Else
                         tcpClient.Send(query)
+                        'Console.WriteLine("SendAndWaitForCANMessageID()" & query)
+                        r = WaitForCANMessageIDTrigger(1000)
                     End If
-                    'Console.WriteLine("SendAndWaitForCANMessageID()" & query)
-                    r = WaitForCANMessageIDTrigger()
                 End If
             End If
         End If
