@@ -382,7 +382,7 @@ Public Class can2usb
     Private Function WaitForNumOfCANMessageIDTriggers(ByVal num As Integer) As Boolean
         Dim sw As New Stopwatch
         Dim b As Boolean
-        Dim c As Integer
+        Dim c As Integer = 10
 
         sw.Reset()
         sw.Start()
@@ -395,6 +395,17 @@ Public Class can2usb
 #End If
                 Interlocked.Increment(StatRXWaitForIDTimeouts)
                 Return (False)
+                'With PiCan2, if car is not powered on, this will loop forever so if no messages received print a warning
+            ElseIf Not UsingSerial AndAlso (getValue(CANMessageIDTriggerCounter) = 0) AndAlso (sw.ElapsedMilliseconds > (c * 1000)) Then
+                Select Case MsgBox("Is car ignition on?", MsgBoxStyle.YesNo, "No Response")
+                    Case MsgBoxResult.No
+                        ' Close and Exit
+                        Me.Disconnect()
+                        Environment.Exit(0)
+                    Case MsgBoxResult.Yes
+                        ' Wait another minute
+                        c += 60
+                End Select
             End If
             TriggerEvent.WaitOne(New TimeSpan(0, 0, 0, 0, 1))
         End While
