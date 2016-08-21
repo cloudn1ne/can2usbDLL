@@ -21,9 +21,9 @@ Imports System.IO
 '#Const DBG_EXTRACT = 1
 '#Const DBG_EXTRACT_SEARCH = 1
 '#Const DBG_EXTRACT_CAN = 1
-#Const DBG_EXTRACT_KLINE = 1
-Public Class can2usb
+'#Const DBG_EXTRACT_KLINE = 1
 
+Public Class can2usb
     'Private fs As FileStream
     'Private sw As StreamWriter
 
@@ -36,9 +36,10 @@ Public Class can2usb
     Private buf() As Byte = New Byte() {}
     Private START_PATTERN_VER() As Byte = System.Text.Encoding.ASCII.GetBytes("$VER")
     Private START_PATTERN_CANRX() As Byte = System.Text.Encoding.ASCII.GetBytes("$F")
-    Private START_PATTERN_KLINERX() As Byte = System.Text.Encoding.ASCII.GetBytes("$O")
+    Private START_PATTERN_KLINERX() As Byte = System.Text.Encoding.ASCII.GetBytes("$KO")
     Private START_PATTERN_KLINEINIT() As Byte = System.Text.Encoding.ASCII.GetBytes("$KSI,")
     Private END_PATTERN() As Byte = {&HD, &HA} ' = \r\n
+    Private START_PATTERN_KLINE_OBD_MULTIFRAME() As Byte = {&H48, &H6B, &H10, &H49, &H2}
 
     ' Triggering
     Private TriggerEventCAN = New EventWaitHandle(False, EventResetMode.AutoReset)
@@ -66,9 +67,9 @@ Public Class can2usb
     Private Shared CANMessageIDTriggerFlag As Boolean = False
 
     ' K-Line Message Handling
-    Public ReadOnly MaxKLINEMessageBufferSize As Integer = 16
+    Public ReadOnly MaxKLINEMessageBufferSize As Integer = 64
     Private KLINEMessagesIdx As Integer = 0
-    Private Shared KLINEMessages(16) As KLINEMessage
+    Private Shared KLINEMessages(64) As KLINEMessage
     Private KLINEMessagesOverrun As Boolean = True
     Private Shared KLINEMessageIDTriggerFlag As Boolean = False
 
@@ -222,8 +223,6 @@ Public Class can2usb
             KLINEMessages(Interlocked.Read(KLINEMessagesIdx)) = kmsg
             If (Interlocked.Read(KLINEMessagesIdx) < KLINEMessages.Length - 2) Then
                 Interlocked.Increment(KLINEMessagesIdx)
-                Interlocked.Exchange(KLINEMessageIDTriggerFlag, True)
-                TriggerEventKLINE.Set()
             Else
                 ' indicate overun of buffer                
                 Interlocked.Exchange(KLINEMessagesOverrun, True)
@@ -248,7 +247,7 @@ Public Class can2usb
     '*****************************************************
     '* Add one CANMessage to CANMessages array
     '*****************************************************
-    Private Sub AddCANMessage(ByRef cmsg As CANMessage)
+    Private Sub AddCANMessage(ByVal cmsg As CANMessage)
         'Dim oldsize As Integer = 0
 
         'Console.WriteLine("AddCANMessage()")
@@ -260,7 +259,6 @@ Public Class can2usb
                 ' indicate overun of buffer                
                 Interlocked.Exchange(CANMessagesOverrun, True)
             End If
-            'Console.WriteLine("AddCANMessage() done" & CANMessagesIdx & " " & CANMessages.Length)
         End SyncLock
     End Sub
 
@@ -597,12 +595,13 @@ Public Class can2usb
     Private Sub ExtractKnownMessages(ByRef buf)
         Dim s As Integer = 0
         Dim msg() As Byte = Nothing
+        Dim crc As Integer = 0
 
 #If DBG_EXTRACT Then
         PrintBuf(buf, "ExtractKnownMessages")
 #End If
         '************************************************
-        '* Extract $VER
+        '* Extract $VER (Adapter Version Information)
         '************************************************
         s = SearchBytePattern(START_PATTERN_VER, buf, 0)
         While (s > -1)
@@ -614,7 +613,7 @@ Public Class can2usb
         End While
 
         '************************************************
-        '* Extract $KSI
+        '* Extract $KSI (K-LINE Slow Init)
         '************************************************
         s = SearchBytePattern(START_PATTERN_KLINEINIT, buf, 0)
         While (s > -1)
@@ -625,27 +624,77 @@ Public Class can2usb
             s = SearchBytePattern(START_PATTERN_KLINEINIT, buf, s)
         End While
 
-
         '************************************************
-        '* Extract $K,
+        '* Extract $KO, (K-LINE OBD Message)
         '************************************************
         s = SearchBytePattern(START_PATTERN_KLINERX, buf, 0)
         While (s > -1)
             Dim kmsg As KLINEMessage
             kmsg = ExtractKLINEMessage(buf, s)
             If (kmsg.status >= 0) Then
-                AddKLINEMessage(kmsg)         ' message decoded fine, store for later use
-            Else ' there was an error extracting the CAN message
-                If (kmsg.status = -4) Then  ' CRC Error
-                    Interlocked.Increment(StatRXCRCErrors)
+                ' we need to check if its a single frame message or a multi frame message
+                Dim mfs As Integer = SearchBytePattern(START_PATTERN_KLINE_OBD_MULTIFRAME, kmsg.data, 0)
+                If (mfs = -1) Then
+                    ''''''''''''''''''''''''''''''''''''
+                    ' no match, must be single frame
+                    ''''''''''''''''''''''''''''''''''''                    
+                    For i As Integer = 0 To kmsg.len - 1
+                        crc += kmsg.data(i) And &HFF
+                    Next
+                    'Console.WriteLine("CRC calced 0x" & Hex(crc And &HFF))
+                    'Console.WriteLine("CRC msg 0x" & Hex(kmsg.crc))
+                    If (kmsg.crc = (crc And &HFF)) Then
+                        AddKLINEMessage(kmsg)
+                    Else
+                        Interlocked.Increment(StatRXCRCErrors)
+                    End If
+
+                Else
+                    '''''''''''''''''''''''''''''''
+                    ' match, must be multiframe
+                    '''''''''''''''''''''''''''''''
+                    Dim frame_count As Integer = 0
+                    While (mfs > -1)
+                        Dim kmsg_mf As New KLINEMessage ' single kmsg out of a multiframe msg
+                        frame_count += 1
+                        'Console.WriteLine("MULTIFRAME KLINE #" & frame_count & "/" & mfs & vbCrLf)
+                        ' copy 10 databytes (single frame)
+                        kmsg_mf.len = 10
+                        Array.Resize(kmsg_mf.data, kmsg_mf.len)
+                        Array.Copy(kmsg.data, mfs, kmsg_mf.data, 0, kmsg_mf.len)
+
+                        ' For i As Integer = mfs To mfs + kmsg_mf.len - 1
+                        '     Console.Write(" " & Hex(kmsg.data(i)))
+                        ' Next
+                        'Console.WriteLine("")
+                        'Console.WriteLine("mfs " & mfs + kmsg_mf.len & " / " & kmsg.len)
+
+                        If (mfs + kmsg_mf.len > kmsg.len - 1) Then       ' the last single frame's CRC is the one from kmsg.crc
+                            kmsg_mf.crc = kmsg.crc
+                        Else
+                            kmsg_mf.crc = kmsg.data(mfs + 10)
+                        End If
+                        'Console.WriteLine(" CRC: 0x" & Hex(kmsg_mf.crc))
+
+                        AddKLINEMessage(kmsg_mf)
+                        mfs += START_PATTERN_KLINE_OBD_MULTIFRAME.Length
+                        mfs = SearchBytePattern(START_PATTERN_KLINE_OBD_MULTIFRAME, kmsg.data, mfs)
+                    End While
                 End If
+                ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+                ' set trigger - multiframe msgs only set trigger after all subframes are received
+                ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+                Interlocked.Exchange(KLINEMessageIDTriggerFlag, True)
+                TriggerEventKLINE.Set()
+            Else ' there was an error extracting the KLINE Message
+                Interlocked.Increment(StatRXShortMsgErrors)
                 Exit While
             End If
             s = SearchBytePattern(START_PATTERN_KLINERX, buf, s)
         End While
 
         '************************************************
-        '* Extract $F
+        '* Extract $F (CAN Message Frame)
         '************************************************
         s = SearchBytePattern(START_PATTERN_CANRX, buf, 0)
         While (s > -1)
@@ -1239,81 +1288,54 @@ Public Class can2usb
 #End If
         kmsg.used = False
         kmsg.status = -1
-        '''''''''''''''''''''''''''''''''''''''''''''''''''
-        ' KLINE frame with no payload is 2 bytes, so this is the minimum length
-        ' of Bytes() otherwise we are fooked
-        '''''''''''''''''''''''''''''''''''''''''''''''''''
-        If (buf.Length < (start + 7)) Then
-            start = -1
+        ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+        ' Extract len byte from message and make sure we have the full frame        
+        ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+        If (buf.Length < (start + START_PATTERN_KLINERX.Length + 1)) Then
+            start = start + 1
 #If DBG_EXTRACT_KLINE Then
-            Console.WriteLine("ExtractKLINEMessage - Minimum length not reached")
+            Console.WriteLine("ExtractKLINEMessage - Frame length not available")
 #End If
             Return (kmsg)
         End If
-        Try
-            '''''''''''''''''''''''''''''''''''''''''''''''''''
-            ' Extract .len and prepare .data
-            '''''''''''''''''''''''''''''''''''''''''''''''''''
-            str_end = SearchBytePattern(END_PATTERN, buf, start)
-            If (str_end = -1) Then
-                kmsg.status = -1
-                Return (kmsg)
-            End If
 
-            kmsg.len = str_end - start - 4 - START_PATTERN_KLINERX.Length
-            'Console.WriteLine("kmsg.len =" & kmsg.len)
-            Array.Resize(kmsg.data, kmsg.len)
-        Catch ex As Exception
-            Dim str = "Start: " & start & vbCrLf & "Bytes length: " & buf.Length
-            For i = start To buf.Length - 1
-                str &= " " & Hex(buf(i)) & "{" & i & "}"
-            Next
-            MsgBox("Error in decoding KLINE Frame - Extracting length" & vbCrLf & str)
-        End Try
-        '''''''''''''''''''''''''''''''''''''''''''''''''''
-        ' Extract .data
-        '''''''''''''''''''''''''''''''''''''''''''''''''''
-        Try
-            For i = 0 To kmsg.len - 1
-                kmsg.data(i) = buf(start + START_PATTERN_KLINERX.Length + 3 + i)
-                'Console.WriteLine(Hex(kmsg.data(i)))
-            Next
-        Catch ex As Exception
-            Dim str = "Start: " & start & vbCrLf & "Bytes len: " & buf.Length & vbCrLf & "KLINE len:" & kmsg.len & vbCrLf & "i:" & i & vbCrLf
-            For i = start To buf.Length - 1
-                str &= " " & Hex(buf(i)) & "{" & i & "}"
-            Next
-            MsgBox("Error in decoding KLINE Frame - Extracting Data" & vbCrLf & str)
-        End Try
-        '''''''''''''''''''''''''''''''''''''''''''''''''''
-        ' Check location of CRC and its value
-        '''''''''''''''''''''''''''''''''''''''''''''''''''
-        Try
-            ' calc CRC
-            For i = start + START_PATTERN_KLINERX.Length To start + START_PATTERN_KLINERX.Length + 3 + kmsg.len - 1
-                crc += buf(i)
-            Next
-            ' check CRC
-            If (buf(start + START_PATTERN_KLINERX.Length + 3 + kmsg.len) <> (crc And &HFF)) Then
-                ' Console.WriteLine("CRC invalid than expected " & Hex(crc And &HFF) & " expected " & Hex(Bytes(4 + cmsg.len + start)))
-                kmsg.status = -4
-                start = -1
+        Dim len_raw As Integer = buf(start + START_PATTERN_KLINERX.Length)      ' data length (incl. CRC/last byte)
+
+        If (buf.Length < (start + START_PATTERN_KLINERX.Length + 1 + len_raw + END_PATTERN.Length)) Then
+            start = start + 1
 #If DBG_EXTRACT_KLINE Then
-                Console.WriteLine("ExtractKLINEMessage - Invalid CRC")
+            Console.WriteLine("ExtractKLINEMessage - Complete frame length not available")
 #End If
-            End If
+            Return (kmsg)
+        End If
 
-        Catch ex As Exception
-            Dim str = "Start: " & start & vbCrLf & "Bytes len: " & buf.Length & vbCrLf & "KLINE len:" & kmsg.len & vbCrLf
-            For i = start To buf.Length - 1
-                str &= " " & Hex(buf(i)) & "{" & i & "}"
-            Next
-            MsgBox("Error in decoding CAN Frame - checking CRC" & vbCrLf & str)
-        End Try
+        '''''''''''''''''''''''''''''''''''''''''''''''''''
+        ' Extract .len and prepare .data            
+        '''''''''''''''''''''''''''''''''''''''''''''''''''            
+        str_end = SearchBytePattern(END_PATTERN, buf, start)
+        If (str_end = -1) Then ' no END_PATTERN found
+            start = start + 1
+#If DBG_EXTRACT_KLINE Then
+            Console.WriteLine("ExtractKLINEMessage - No END pattern found")
+#End If
+            Return (kmsg)
+        End If
+
+        kmsg.len = len_raw - 1
+        Array.Resize(kmsg.data, kmsg.len)
+        '''''''''''''''''''''''''''''''''''''''''''''''''''
+        ' Extract .data and .crc (CRC is not checked here)
+        '''''''''''''''''''''''''''''''''''''''''''''''''''
+        For i = 0 To kmsg.len - 1
+            kmsg.data(i) = buf(start + START_PATTERN_KLINERX.Length + 1 + i)
+        Next
+        kmsg.crc = buf(start + START_PATTERN_KLINERX.Length + 1 + kmsg.len)
+
+        ''''''''''''''''''''''''''''''''''
         ' indicate successful extraction
+        ''''''''''''''''''''''''''''''''''
         kmsg.used = True
         kmsg.status = 0
-
 
         '''''''''''''''''''''''''''''''''''''''''''
         ' truncate buf()
@@ -1509,7 +1531,7 @@ Public Class can2usb
     End Function
 
     '*****************************************************
-    '* Send KLINE request (no waiting)
+    '* Send KLINE OBD request (wait for reply)
     '*****************************************************
     Public Function SendKLINEMessage(ByVal Request As KLINEMessage) As Boolean
         Dim r As Boolean = False
@@ -1517,7 +1539,7 @@ Public Class can2usb
 
         If (is_open) Then
             If (UsingSerial AndAlso ComPort.IsOpen) Then
-                Dim query As String = "$K," & Hex(Request.len + 1)
+                Dim query As String = "$KO," & Hex(Request.len + 1)
                 For i As Integer = 0 To Request.len - 1
                     query &= "," & Hex(Request.data(i))
                     crc += Request.data(i)

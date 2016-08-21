@@ -280,7 +280,7 @@ Public Class Form1
                 SimulateOBDRead()
             End If
             If (CBKLINEOBD.Checked) Then
-                SimulateKLINEOBDRead()
+                SimulateKLINEOBDRead(&H9, &H2)
             End If
         End If
     End Sub
@@ -383,31 +383,47 @@ Public Class Form1
     End Sub
 
     Private Sub Button5_Click(sender As Object, e As EventArgs) Handles Button5.Click
-        SimulateKLINEOBDRead()
+        SimulateKLINEOBDRead(&H9, &H2)
     End Sub
 
-    Public Sub SimulateKLINEOBDRead()
+    Private Sub Button6_Click(sender As Object, e As EventArgs) Handles Button6.Click
+        SimulateKLINEOBDRead(&H1, &HD)
+    End Sub
+
+    Public Sub SimulateKLINEOBDRead(ByVal Mode As Integer, ByVal Pid As Integer)
         Dim kmsg As New can2usbDLL.can2usb.KLINEMessage
+        Dim data_str As String = ""
 
         kmsg.len = 5
         Array.Resize(kmsg.data, kmsg.len)
         kmsg.data(0) = &H68
         kmsg.data(1) = &H6A
         kmsg.data(2) = &HF1         ' TEST ID (SOURCE)
-        kmsg.data(3) = &H9          ' MODE
-        kmsg.data(4) = &H2          ' PID
+        kmsg.data(3) = Mode          ' MODE
+        kmsg.data(4) = Pid          ' PID
         ECU.Adapter.SendKLINEMessage(kmsg)
-
         Dim kb() As can2usbDLL.can2usb.KLINEMessage
 
         kb = ECU.Adapter.GetKLINEMessagesBuffer()
         For i As Integer = 0 To kb.Length - 1
             TextBox1.Text &= "Buffer: " & i & " "
             For j As Integer = 0 To kb(i).len - 1
-                ' TextBox1.Text &= " 0x" & Hex(kb(i).data(j))
-                TextBox1.Text &= Chr(kb(i).data(j))
-            Next
+                TextBox1.Text &= " 0x" & Hex(kb(i).data(j))
+            Next j
+            If (kb(i).len = 10) Then
+                For j As Integer = 6 To 9
+                    If (kb(i).data(j) <> 0) Then
+                        data_str &= Chr(kb(i).data(j))
+                    End If
+                Next j
+            End If
+            TextBox1.Text &= " (0x" & Hex(kb(i).crc) & ")"  ' crc byte
             TextBox1.Text &= vbCrLf
-        Next
+        Next i
+        If (data_str <> "") Then
+            TextBox1.Text &= "Text: " & data_str & vbCrLf
+        End If
     End Sub
+
+
 End Class

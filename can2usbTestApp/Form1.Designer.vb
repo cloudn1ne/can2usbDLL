@@ -50,6 +50,7 @@ Partial Class Form1
         Me.Label2 = New System.Windows.Forms.Label()
         Me.Label1 = New System.Windows.Forms.Label()
         Me.GroupBox2 = New System.Windows.Forms.GroupBox()
+        Me.CBKLINEOBD = New System.Windows.Forms.CheckBox()
         Me.Button5 = New System.Windows.Forms.Button()
         Me.Button4 = New System.Windows.Forms.Button()
         Me.BDownloadECU = New System.Windows.Forms.Button()
@@ -64,14 +65,14 @@ Partial Class Form1
         Me.BOBDRead = New System.Windows.Forms.Button()
         Me.FolderBrowserDialog_download = New System.Windows.Forms.FolderBrowserDialog()
         Me.LblCopyright = New System.Windows.Forms.Label()
-        Me.CBKLINEOBD = New System.Windows.Forms.CheckBox()
+        Me.Button6 = New System.Windows.Forms.Button()
         Me.GroupBox1.SuspendLayout()
         Me.GroupBox2.SuspendLayout()
         Me.SuspendLayout()
         '
         'TextBox1
         '
-        Me.TextBox1.Location = New System.Drawing.Point(5, 350)
+        Me.TextBox1.Location = New System.Drawing.Point(11, 280)
         Me.TextBox1.Multiline = True
         Me.TextBox1.Name = "TextBox1"
         Me.TextBox1.ScrollBars = System.Windows.Forms.ScrollBars.Vertical
@@ -98,7 +99,7 @@ Partial Class Form1
         '
         'Button3
         '
-        Me.Button3.Location = New System.Drawing.Point(517, 286)
+        Me.Button3.Location = New System.Drawing.Point(455, 251)
         Me.Button3.Name = "Button3"
         Me.Button3.Size = New System.Drawing.Size(75, 23)
         Me.Button3.TabIndex = 3
@@ -107,11 +108,11 @@ Partial Class Form1
         '
         'BBurst
         '
-        Me.BBurst.Location = New System.Drawing.Point(518, 195)
+        Me.BBurst.Location = New System.Drawing.Point(455, 144)
         Me.BBurst.Name = "BBurst"
-        Me.BBurst.Size = New System.Drawing.Size(75, 23)
+        Me.BBurst.Size = New System.Drawing.Size(122, 23)
         Me.BBurst.TabIndex = 4
-        Me.BBurst.Text = "Burst 0x80"
+        Me.BBurst.Text = "CAN Burst 0x80"
         Me.BBurst.UseVisualStyleBackColor = True
         '
         'TimerStats
@@ -139,7 +140,7 @@ Partial Class Form1
         Me.GroupBox1.Controls.Add(Me.Label3)
         Me.GroupBox1.Controls.Add(Me.Label2)
         Me.GroupBox1.Controls.Add(Me.Label1)
-        Me.GroupBox1.Location = New System.Drawing.Point(5, 179)
+        Me.GroupBox1.Location = New System.Drawing.Point(12, 144)
         Me.GroupBox1.Name = "GroupBox1"
         Me.GroupBox1.Size = New System.Drawing.Size(437, 130)
         Me.GroupBox1.TabIndex = 9
@@ -293,8 +294,6 @@ Partial Class Form1
         'GroupBox2
         '
         Me.GroupBox2.Controls.Add(Me.CBKLINEOBD)
-        Me.GroupBox2.Controls.Add(Me.Button5)
-        Me.GroupBox2.Controls.Add(Me.Button4)
         Me.GroupBox2.Controls.Add(Me.BDownloadECU)
         Me.GroupBox2.Controls.Add(Me.CBCANOBD)
         Me.GroupBox2.Controls.Add(Me.LPollInterval)
@@ -306,27 +305,37 @@ Partial Class Form1
         Me.GroupBox2.Controls.Add(Me.Button1)
         Me.GroupBox2.Location = New System.Drawing.Point(11, 27)
         Me.GroupBox2.Name = "GroupBox2"
-        Me.GroupBox2.Size = New System.Drawing.Size(582, 159)
+        Me.GroupBox2.Size = New System.Drawing.Size(678, 111)
         Me.GroupBox2.TabIndex = 10
         Me.GroupBox2.TabStop = False
         Me.GroupBox2.Text = "Setup"
         '
+        'CBKLINEOBD
+        '
+        Me.CBKLINEOBD.AutoSize = True
+        Me.CBKLINEOBD.Location = New System.Drawing.Point(548, 85)
+        Me.CBKLINEOBD.Name = "CBKLINEOBD"
+        Me.CBKLINEOBD.Size = New System.Drawing.Size(118, 17)
+        Me.CBKLINEOBD.TabIndex = 9
+        Me.CBKLINEOBD.Text = "KLINE OBD (Read)"
+        Me.CBKLINEOBD.UseVisualStyleBackColor = True
+        '
         'Button5
         '
-        Me.Button5.Location = New System.Drawing.Point(220, 47)
+        Me.Button5.Location = New System.Drawing.Point(590, 170)
         Me.Button5.Name = "Button5"
-        Me.Button5.Size = New System.Drawing.Size(75, 23)
+        Me.Button5.Size = New System.Drawing.Size(99, 23)
         Me.Button5.TabIndex = 8
-        Me.Button5.Text = "Button5"
+        Me.Button5.Text = "KLINE Mode 9"
         Me.Button5.UseVisualStyleBackColor = True
         '
         'Button4
         '
-        Me.Button4.Location = New System.Drawing.Point(220, 18)
+        Me.Button4.Location = New System.Drawing.Point(590, 144)
         Me.Button4.Name = "Button4"
-        Me.Button4.Size = New System.Drawing.Size(75, 23)
+        Me.Button4.Size = New System.Drawing.Size(99, 23)
         Me.Button4.TabIndex = 7
-        Me.Button4.Text = "Button4"
+        Me.Button4.Text = "KLINE SlowInit"
         Me.Button4.UseVisualStyleBackColor = True
         '
         'BDownloadECU
@@ -343,7 +352,7 @@ Partial Class Form1
         '
         Me.CBCANOBD.AutoSize = True
         Me.CBCANOBD.Enabled = False
-        Me.CBCANOBD.Location = New System.Drawing.Point(469, 65)
+        Me.CBCANOBD.Location = New System.Drawing.Point(548, 62)
         Me.CBCANOBD.Name = "CBCANOBD"
         Me.CBCANOBD.Size = New System.Drawing.Size(109, 17)
         Me.CBCANOBD.TabIndex = 5
@@ -353,7 +362,7 @@ Partial Class Form1
         'LPollInterval
         '
         Me.LPollInterval.AutoSize = True
-        Me.LPollInterval.Location = New System.Drawing.Point(343, 19)
+        Me.LPollInterval.Location = New System.Drawing.Point(422, 16)
         Me.LPollInterval.Name = "LPollInterval"
         Me.LPollInterval.Size = New System.Drawing.Size(65, 13)
         Me.LPollInterval.TabIndex = 4
@@ -361,7 +370,7 @@ Partial Class Form1
         '
         'SBPollInterval
         '
-        Me.SBPollInterval.Location = New System.Drawing.Point(313, 45)
+        Me.SBPollInterval.Location = New System.Drawing.Point(392, 42)
         Me.SBPollInterval.Maximum = 1000
         Me.SBPollInterval.Minimum = 10
         Me.SBPollInterval.Name = "SBPollInterval"
@@ -373,7 +382,7 @@ Partial Class Form1
         '
         Me.CBTimerQuery.AutoSize = True
         Me.CBTimerQuery.Enabled = False
-        Me.CBTimerQuery.Location = New System.Drawing.Point(336, 62)
+        Me.CBTimerQuery.Location = New System.Drawing.Point(415, 59)
         Me.CBTimerQuery.Name = "CBTimerQuery"
         Me.CBTimerQuery.Size = New System.Drawing.Size(90, 17)
         Me.CBTimerQuery.TabIndex = 2
@@ -384,7 +393,7 @@ Partial Class Form1
         '
         Me.CBCAN50.AutoSize = True
         Me.CBCAN50.Enabled = False
-        Me.CBCAN50.Location = New System.Drawing.Point(469, 42)
+        Me.CBCAN50.Location = New System.Drawing.Point(548, 39)
         Me.CBCAN50.Name = "CBCAN50"
         Me.CBCAN50.Size = New System.Drawing.Size(109, 17)
         Me.CBCAN50.TabIndex = 1
@@ -395,7 +404,7 @@ Partial Class Form1
         '
         Me.CBCAN80.AutoSize = True
         Me.CBCAN80.Enabled = False
-        Me.CBCAN80.Location = New System.Drawing.Point(469, 19)
+        Me.CBCAN80.Location = New System.Drawing.Point(548, 16)
         Me.CBCAN80.Name = "CBCAN80"
         Me.CBCAN80.Size = New System.Drawing.Size(107, 17)
         Me.CBCAN80.TabIndex = 0
@@ -404,11 +413,11 @@ Partial Class Form1
         '
         'BMemoryRead
         '
-        Me.BMemoryRead.Location = New System.Drawing.Point(480, 224)
+        Me.BMemoryRead.Location = New System.Drawing.Point(454, 172)
         Me.BMemoryRead.Name = "BMemoryRead"
-        Me.BMemoryRead.Size = New System.Drawing.Size(112, 23)
+        Me.BMemoryRead.Size = New System.Drawing.Size(123, 23)
         Me.BMemoryRead.TabIndex = 11
-        Me.BMemoryRead.Text = "Memory Read 0x50"
+        Me.BMemoryRead.Text = "CAN Mem Read 0x50"
         Me.BMemoryRead.UseVisualStyleBackColor = True
         '
         'TimerQuery
@@ -417,11 +426,11 @@ Partial Class Form1
         '
         'BOBDRead
         '
-        Me.BOBDRead.Location = New System.Drawing.Point(481, 253)
+        Me.BOBDRead.Location = New System.Drawing.Point(455, 199)
         Me.BOBDRead.Name = "BOBDRead"
-        Me.BOBDRead.Size = New System.Drawing.Size(112, 23)
+        Me.BOBDRead.Size = New System.Drawing.Size(122, 23)
         Me.BOBDRead.TabIndex = 12
-        Me.BOBDRead.Text = "OBD Read"
+        Me.BOBDRead.Text = "CAN OBD Read"
         Me.BOBDRead.UseVisualStyleBackColor = True
         '
         'LblCopyright
@@ -432,24 +441,26 @@ Partial Class Form1
         Me.LblCopyright.Size = New System.Drawing.Size(0, 13)
         Me.LblCopyright.TabIndex = 13
         '
-        'CBKLINEOBD
+        'Button6
         '
-        Me.CBKLINEOBD.AutoSize = True
-        Me.CBKLINEOBD.Location = New System.Drawing.Point(469, 88)
-        Me.CBKLINEOBD.Name = "CBKLINEOBD"
-        Me.CBKLINEOBD.Size = New System.Drawing.Size(118, 17)
-        Me.CBKLINEOBD.TabIndex = 9
-        Me.CBKLINEOBD.Text = "KLINE OBD (Read)"
-        Me.CBKLINEOBD.UseVisualStyleBackColor = True
+        Me.Button6.Location = New System.Drawing.Point(590, 199)
+        Me.Button6.Name = "Button6"
+        Me.Button6.Size = New System.Drawing.Size(99, 23)
+        Me.Button6.TabIndex = 10
+        Me.Button6.Text = "KLINE Mode 1"
+        Me.Button6.UseVisualStyleBackColor = True
         '
         'Form1
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
-        Me.ClientSize = New System.Drawing.Size(647, 575)
+        Me.ClientSize = New System.Drawing.Size(697, 502)
+        Me.Controls.Add(Me.Button6)
         Me.Controls.Add(Me.LblCopyright)
         Me.Controls.Add(Me.BOBDRead)
+        Me.Controls.Add(Me.Button5)
         Me.Controls.Add(Me.BMemoryRead)
+        Me.Controls.Add(Me.Button4)
         Me.Controls.Add(Me.GroupBox2)
         Me.Controls.Add(Me.GroupBox1)
         Me.Controls.Add(Me.BBurst)
@@ -510,4 +521,5 @@ Partial Class Form1
     Friend WithEvents Button4 As Button
     Friend WithEvents Button5 As Button
     Friend WithEvents CBKLINEOBD As CheckBox
+    Friend WithEvents Button6 As Button
 End Class
