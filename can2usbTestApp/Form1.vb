@@ -260,8 +260,8 @@ Public Class Form1
             For j As Integer = 0 To cb(i).data.Length - 1
                 data &= " 0x" & Hex(cb(i).data(j))
             Next
-            TextBox1.Text &= addr & " = " & Hex(cb(i).id) & data & vbCrLf
-
+            'TextBox1.Text &= addr & " = " & Hex(cb(i).id) & data & vbCrLf
+            TextBox1.Text &= Hex(cb(i).id) & vbCrLf
         Next
     End Sub
 
@@ -278,6 +278,9 @@ Public Class Form1
             End If
             If (CBCANOBD.Checked) Then
                 SimulateOBDRead()
+            End If
+            If (CBKLINEOBD.Checked) Then
+                SimulateKLINEOBDRead()
             End If
         End If
     End Sub
@@ -334,7 +337,7 @@ Public Class Form1
             Dim d_calram As New Downloader(&H3F8000, &H8000)
             If (d_calram.ShowDialog() = DialogResult.Abort) Then
                 d_calram.Dispose()
-                MessageBox.Show("Error while downloading DECRAM (0x3F8000-0x3FFFFF)", "Download Error", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
+                MessageBox.Show("Error while downloading CALRAM (0x3F8000-0x3FFFFF)", "Download Error", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
                 Exit Sub
             End If
             SaveBINFile(binpath & "\calram.bin", d_calram.bytes)
@@ -373,5 +376,38 @@ Public Class Form1
         Return hex_value.ToLower
     End Function
 
+    Private Sub Button4_Click(sender As Object, e As EventArgs) Handles Button4.Click
+        ECU.Adapter.SendGetVersion()
+        ECU.Adapter.GetVersion()
+        ECU.Adapter.SendKLINEInit()
+    End Sub
 
+    Private Sub Button5_Click(sender As Object, e As EventArgs) Handles Button5.Click
+        SimulateKLINEOBDRead()
+    End Sub
+
+    Public Sub SimulateKLINEOBDRead()
+        Dim kmsg As New can2usbDLL.can2usb.KLINEMessage
+
+        kmsg.len = 5
+        Array.Resize(kmsg.data, kmsg.len)
+        kmsg.data(0) = &H68
+        kmsg.data(1) = &H6A
+        kmsg.data(2) = &HF1         ' TEST ID (SOURCE)
+        kmsg.data(3) = &H9          ' MODE
+        kmsg.data(4) = &H2          ' PID
+        ECU.Adapter.SendKLINEMessage(kmsg)
+
+        Dim kb() As can2usbDLL.can2usb.KLINEMessage
+
+        kb = ECU.Adapter.GetKLINEMessagesBuffer()
+        For i As Integer = 0 To kb.Length - 1
+            TextBox1.Text &= "Buffer: " & i & " "
+            For j As Integer = 0 To kb(i).len - 1
+                ' TextBox1.Text &= " 0x" & Hex(kb(i).data(j))
+                TextBox1.Text &= Chr(kb(i).data(j))
+            Next
+            TextBox1.Text &= vbCrLf
+        Next
+    End Sub
 End Class

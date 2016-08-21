@@ -18,7 +18,10 @@ Imports System.IO
 '#Const DBG_RX_COPY = 1
 '#Const DBG_ID_TRIGGER = 1
 '#Const DBG_ID_TRIGGER_TO = 1
-
+'#Const DBG_EXTRACT = 1
+'#Const DBG_EXTRACT_SEARCH = 1
+'#Const DBG_EXTRACT_CAN = 1
+#Const DBG_EXTRACT_KLINE = 1
 Public Class can2usb
 
     'Private fs As FileStream
@@ -33,11 +36,13 @@ Public Class can2usb
     Private buf() As Byte = New Byte() {}
     Private START_PATTERN_VER() As Byte = System.Text.Encoding.ASCII.GetBytes("$VER")
     Private START_PATTERN_CANRX() As Byte = System.Text.Encoding.ASCII.GetBytes("$F")
-    Private START_PATTERN_KLINERX() As Byte = System.Text.Encoding.ASCII.GetBytes("$K")
-    Private END_PATTERN() As Byte = System.Text.Encoding.ASCII.GetBytes(vbCrLf)
+    Private START_PATTERN_KLINERX() As Byte = System.Text.Encoding.ASCII.GetBytes("$O")
+    Private START_PATTERN_KLINEINIT() As Byte = System.Text.Encoding.ASCII.GetBytes("$KSI,")
+    Private END_PATTERN() As Byte = {&HD, &HA} ' = \r\n
 
     ' Triggering
-    Private TriggerEvent = New EventWaitHandle(False, EventResetMode.AutoReset)
+    Private TriggerEventCAN = New EventWaitHandle(False, EventResetMode.AutoReset)
+    Private TriggerEventKLINE = New EventWaitHandle(False, EventResetMode.AutoReset)
 
     ' Default timeout for shield used
     Private ShieldTimeout As Integer = 100
@@ -65,6 +70,10 @@ Public Class can2usb
     Private KLINEMessagesIdx As Integer = 0
     Private Shared KLINEMessages(16) As KLINEMessage
     Private KLINEMessagesOverrun As Boolean = True
+    Private Shared KLINEMessageIDTriggerFlag As Boolean = False
+
+    ' $VER handling
+    Private version_string As String = "unknown"
 
     ' CAN shield types
     Public Enum ShieldType As Integer
@@ -87,6 +96,7 @@ Public Class can2usb
         Dim data() As Byte
         Dim crc As Byte
         Dim used As Boolean
+        Dim status As Integer
     End Structure
 
     '*****************************************************
@@ -140,6 +150,7 @@ Public Class can2usb
                 Thread.Sleep(2000)
             End If
             Me.is_open = True
+            SendGetVersion()
         Catch ex As Exception
             Return (False)
         End Try
@@ -166,6 +177,7 @@ Public Class can2usb
             'tcpClient.SendTimeout = ShieldTimeout
             tcpClient.Connect(IpAddress, Port)
             Me.is_open = True
+            SendGetVersion()
         Catch ex As Exception
             Return (False)
         End Try
@@ -205,16 +217,17 @@ Public Class can2usb
     Private Sub AddKLINEMessage(ByRef kmsg As KLINEMessage)
         'Dim oldsize As Integer = 0
 
-        'Console.WriteLine("AddCANMessage()")
+        'Console.WriteLine("AddKLINEMessage()")
         SyncLock (KLINEMessages)
             KLINEMessages(Interlocked.Read(KLINEMessagesIdx)) = kmsg
             If (Interlocked.Read(KLINEMessagesIdx) < KLINEMessages.Length - 2) Then
                 Interlocked.Increment(KLINEMessagesIdx)
+                Interlocked.Exchange(KLINEMessageIDTriggerFlag, True)
+                TriggerEventKLINE.Set()
             Else
                 ' indicate overun of buffer                
                 Interlocked.Exchange(KLINEMessagesOverrun, True)
             End If
-            'Console.WriteLine("AddCANMessage() done" & CANMessagesIdx & " " & CANMessages.Length)
         End SyncLock
     End Sub
 
@@ -250,6 +263,20 @@ Public Class can2usb
             'Console.WriteLine("AddCANMessage() done" & CANMessagesIdx & " " & CANMessages.Length)
         End SyncLock
     End Sub
+
+    '*****************************************************
+    '* Get copy of KLINEMessages array
+    '*****************************************************
+    Public Function GetKLINEMessagesBuffer() As KLINEMessage()
+        Dim KLINEMessages_copy() As KLINEMessage = Nothing
+        Dim idx = Interlocked.Read(KLINEMessagesIdx)
+
+        Array.Resize(KLINEMessages_copy, idx)
+        SyncLock (KLINEMessages)
+            Array.Copy(KLINEMessages, KLINEMessages_copy, idx)
+        End SyncLock
+        Return (KLINEMessages_copy)
+    End Function
 
     '*****************************************************
     '* Get copy of CANMessages array
@@ -374,6 +401,14 @@ Public Class can2usb
         setValue(CANMessageIDTriggerCounter, 0)
     End Sub
 
+    '*****************************************************
+    '* reset the KLINE Message ID Trigger flag
+    '*****************************************************
+    Private Sub ResetKLINEMessageIDTrigger()
+        Interlocked.Exchange(KLINEMessageIDTriggerFlag, False)
+        'setValue(KLINEMessageIDTriggerCounter, 0)
+    End Sub
+
     '******************************************************************
     '* Wait for CAN Message ID Trigger ID being in the buffer
     '* returns true if triggered within timeout (ShieldTimeout msec)
@@ -385,7 +420,7 @@ Public Class can2usb
         sw.Reset()
         sw.Start()
         While (Interlocked.Read(CANMessageIDTriggerFlag) = False)
-            TriggerEvent.WaitOne(New TimeSpan(0, 0, 1))
+            TriggerEventCAN.WaitOne(New TimeSpan(0, 0, 1))
             If (sw.ElapsedMilliseconds > ShieldTimeout) Then
 #If DBG_ID_TRIGGER_TO Then
                 Console.WriteLine("WaitForCANMessageIDTrigger(0x" & Hex(CANMessageIDTriggerID) & ") - timeout")
@@ -396,6 +431,30 @@ Public Class can2usb
         End While
         Return (True)
     End Function
+
+    '******************************************************************
+    '* Wait for KLINE Message ID Trigger ID being in the buffer
+    '* returns true if triggered within timeout (ShieldTimeout msec)
+    '* returns false if timeout happend while waiting for the right msg
+    '******************************************************************
+    Private Function WaitForKLINEMessageIDTrigger() As Boolean
+        Dim sw As New Stopwatch
+
+        sw.Reset()
+        sw.Start()
+        While (Interlocked.Read(KLINEMessageIDTriggerFlag) = False)
+            TriggerEventKLINE.WaitOne(New TimeSpan(0, 0, 1))
+            If (sw.ElapsedMilliseconds > ShieldTimeout) Then
+#If DBG_ID_TRIGGER_TO Then
+                Console.WriteLine("WaitForCANMessageIDTrigger(0x" & Hex(CANMessageIDTriggerID) & ") - timeout")
+#End If
+                Interlocked.Increment(StatRXWaitForIDTimeouts)
+                Return (False)
+            End If
+        End While
+        Return (True)
+    End Function
+
 
     '****************************************************************
     '* Wait for CAN Message ID Trigger ID being in the buffer
@@ -408,7 +467,7 @@ Public Class can2usb
         sw.Reset()
         sw.Start()
         While (Interlocked.Read(CANMessageIDTriggerFlag) = False)
-            TriggerEvent.WaitOne(New TimeSpan(0, 0, 1))
+            TriggerEventCAN.WaitOne(New TimeSpan(0, 0, 1))
             If (sw.ElapsedMilliseconds > Timeout) Then
 #If DBG_ID_TRIGGER_TO Then
                 Console.WriteLine("WaitForCANMessageIDTrigger(0x" & Hex(CANMessageIDTriggerID) & ") - timeout")
@@ -445,7 +504,7 @@ Public Class can2usb
                 Interlocked.Increment(StatRXWaitForIDTimeouts)
                 Return (False)
             End If
-            TriggerEvent.WaitOne(New TimeSpan(0, 0, 0, 0, 1))
+            TriggerEventCAN.WaitOne(New TimeSpan(0, 0, 0, 0, 1))
         End While
 #If DBG_ID_TRIGGER_TO Then
         Console.WriteLine("WaitForNumOfCANMessageIDTriggers(0x" & Hex(CANMessageIDTriggerID) & ") - Success")
@@ -454,22 +513,84 @@ Public Class can2usb
         Return (True)
     End Function
 
+    Private Sub PrintBuf(buf() As Byte, ByVal dbg_name As String)
+        If (buf.Length = 0) Then Return
+        Dim buf_len As Integer = buf.Length
+        Dim msg_str As String = ""
+        If (buf_len > 0) Then
+            For i = 0 To buf.Length - 1
+                If (buf(i) < &H20) Or (buf(i) > &H7E) Then
+                    msg_str &= " " & Hex(buf(i)) & "{" & i & "}"            ' non printable
+                Else
+                    msg_str &= Chr(buf(i)) ' & "{" & i & "}"            ' printable char
+                End If
+
+            Next
+            Console.WriteLine(dbg_name & "(" & buf.Length & "): " & msg_str & "")
+        Else
+            Console.WriteLine(dbg_name & " buf() was empty")
+        End If
+    End Sub
+
     Private Function ExtractMessage(ByRef buf, ByRef str_start) As Byte()
         Dim str_end As Integer = 0
         Dim buf_copy() As Byte = {}
         Dim msg() As Byte = Nothing
 
-        ' make a working copy of buf()
-        Array.Resize(buf_copy, buf.length)
-        Array.Copy(buf, buf_copy, buf.length)
-
+        If (buf.length = 0) Then Return (New Byte() {})
         ' find end pattern \r\n
         str_end = SearchBytePattern(END_PATTERN, buf, str_start)
+#If DBG_EXTRACT Then
+        Console.WriteLine("")
+        Console.WriteLine("=================================================================================")
+        Console.WriteLine("ExtractMessage (" & str_start & "-" & str_end & ")")
+#End If
         If (str_start < str_end) Then ' start and end found in buf, extract msg and cut out of buffer
-            Array.Copy(buf_copy, buf, buf.length - str_start)                   ' leading part
-            Array.Copy(buf_copy, str_end, buf, str_start, buf.length - str_end) ' trailing part 
-            Array.Copy(buf_copy, str_start, msg, 0, str_end - str_start)        ' copy extracted message itself
+            Dim buf_len = buf.length
+            ' make a working copy of buf()
+            Array.Resize(buf_copy, buf_len)
+            Array.Copy(buf, buf_copy, buf_len)
+            ' empty original buf()            
+            buf = New Byte() {}
+            Dim new_buf_size = buf_len - (str_end - str_start + END_PATTERN.Length) ' remainder buf len (after msg is extracted)
+#If DBG_EXTRACT Then
+            Console.WriteLine("Remainder Size: " & new_buf_size)
+#End If
+            If (new_buf_size > 0) Then
+                Array.Resize(buf, new_buf_size)
+                If (str_start > 0) Then                                               ' restore leading buf()
+#If DBG_EXTRACT Then
+                    Console.WriteLine("Leading (0-" & str_start & ")")
+#End If
+                    Array.Copy(buf_copy, buf, str_start)
+                End If
+                If (str_end < (buf_len - END_PATTERN.Length)) Then                   ' restore trailing buf()
+#If DBG_EXTRACT Then
+                    Console.WriteLine("Trailing (" & str_end + END_PATTERN.Length & "-" & str_end + END_PATTERN.Length + buf_copy.Length - (str_end + END_PATTERN.Length) & ")")
+#End If
+                    Array.Copy(buf_copy, str_end + END_PATTERN.Length, buf, str_start, buf_len - (str_end + END_PATTERN.Length)) ' add trailing part 
+                End If
+#If DBG_EXTRACT Then
+                PrintBuf(buf, "ExtractMessage_REMAINDER")
+#End If
+            End If
+            ' make some space for the extracted msg
+            Array.Resize(msg, str_end - str_start)
+            Array.Copy(buf_copy, str_start, msg, 0, str_end - str_start)        ' copy extracted message itself            
+#If DBG_EXTRACT Then
+            PrintBuf(msg, "ExtractMessage_MSG")
+#End If
         End If
+        If (str_end = -1) Then
+#If DBG_EXTRACT Then
+            Console.WriteLine("End not found !")
+#End If
+            str_start = -1
+        End If
+#If DBG_EXTRACT Then
+        Console.WriteLine("=================================================================================")
+        Console.WriteLine("")
+#End If
         Return (msg)
     End Function
 
@@ -477,10 +598,78 @@ Public Class can2usb
         Dim s As Integer = 0
         Dim msg() As Byte = Nothing
 
-        s = SearchBytePattern(START_PATTERN_VER, buf, s)
+#If DBG_EXTRACT Then
+        PrintBuf(buf, "ExtractKnownMessages")
+#End If
+        '************************************************
+        '* Extract $VER
+        '************************************************
+        s = SearchBytePattern(START_PATTERN_VER, buf, 0)
         While (s > -1)
             msg = ExtractMessage(buf, s)
+            If (msg IsNot Nothing) Then
+                version_string = System.Text.Encoding.ASCII.GetString(msg)
+            End If
             s = SearchBytePattern(START_PATTERN_VER, buf, s)
+        End While
+
+        '************************************************
+        '* Extract $KSI
+        '************************************************
+        s = SearchBytePattern(START_PATTERN_KLINEINIT, buf, 0)
+        While (s > -1)
+            msg = ExtractMessage(buf, s)
+            If (msg IsNot Nothing) Then
+                Console.WriteLine(System.Text.Encoding.ASCII.GetString(msg))
+            End If
+            s = SearchBytePattern(START_PATTERN_KLINEINIT, buf, s)
+        End While
+
+
+        '************************************************
+        '* Extract $K,
+        '************************************************
+        s = SearchBytePattern(START_PATTERN_KLINERX, buf, 0)
+        While (s > -1)
+            Dim kmsg As KLINEMessage
+            kmsg = ExtractKLINEMessage(buf, s)
+            If (kmsg.status >= 0) Then
+                AddKLINEMessage(kmsg)         ' message decoded fine, store for later use
+            Else ' there was an error extracting the CAN message
+                If (kmsg.status = -4) Then  ' CRC Error
+                    Interlocked.Increment(StatRXCRCErrors)
+                End If
+                Exit While
+            End If
+            s = SearchBytePattern(START_PATTERN_KLINERX, buf, s)
+        End While
+
+        '************************************************
+        '* Extract $F
+        '************************************************
+        s = SearchBytePattern(START_PATTERN_CANRX, buf, 0)
+        While (s > -1)
+            Dim cmsg As CANMessage
+            cmsg = ExtractCANMessage(buf, s)
+            If (cmsg.id >= 0) Then
+                Interlocked.Increment(StatRXValidReceived)
+                AddCANMessage(cmsg) ' message decoded fine, store for later use
+                If (cmsg.id = Interlocked.Read(CANMessageIDTriggerID)) Then ' probe trigger id and set flag if matched 
+                    Interlocked.Exchange(CANMessageIDTriggerFlag, True)
+                    Interlocked.Increment(CANMessageIDTriggerCounter)
+                    TriggerEventCAN.Set()
+                End If
+            Else ' there was an error extracting the CAN message
+                If (cmsg.id < 0) Then
+                    If (cmsg.id = -4) Then  ' CRC Error
+                        Interlocked.Increment(StatRXCRCErrors)
+                    End If
+                    If (cmsg.id = -3) Then  ' Short message error
+                        Interlocked.Increment(StatRXShortMsgErrors)
+                    End If
+                End If
+            End If
+            s = SearchBytePattern(START_PATTERN_CANRX, buf, s)
         End While
     End Sub
 
@@ -494,28 +683,18 @@ Public Class can2usb
         Dim s As Integer
         Dim copy_start_idx As Integer
         Dim cmsg As CANMessage
+        Dim buf_len As Integer
 
         If ComPort.IsOpen Then
             Try
-                Dim buf_len As Integer = buf.Length
+                buf_len = buf.Length
                 Dim ser_len As Integer
-
                 ser_len = ComPort.BytesToRead
-#If DBG_RX_IN Then
-                If (buf_len > 0) Then
-                    msg_str = ""
-                    For i = 0 To buf.Length - 1
-                        msg_str &= " " & Hex(buf(i)) & "{" & i & "}"
-                    Next
-                    Console.WriteLine("existing_str(" & buf.Length & "): " & msg_str & "")
-                End If
-                Console.WriteLine("received_bytes(" & ser_len & ")")
-#End If
-                ' make space for new data in buf()
-                Array.Resize(buf, buf_len + ser_len)
-                ' append data from ComPort to buf()
-                ComPort.Read(buf, buf_len, ser_len)
-
+                Array.Resize(buf, buf_len + ser_len)     ' make space for new data in buf()                
+                ComPort.Read(buf, buf_len, ser_len)      ' append data from ComPort to buf()
+                ExtractKnownMessages(buf)                ' extract (and remove) msgs from buf()             
+                '  Console.WriteLine(buf.Length)
+                Exit Sub
 #If DBG_RX_IN Then
                 msg_str = ""
                 For i = 0 To buf.Length - 1
@@ -532,7 +711,7 @@ Public Class can2usb
                 s = 0
                 s = SearchBytePattern(START_PATTERN_CANRX, buf, s)
                 While (s > -1)
-                    cmsg = ExtactCANMessage(buf, s)
+                    cmsg = ExtractCANMessage(buf, s)
                     If (cmsg.id >= 0) Then
                         Interlocked.Increment(StatRXValidReceived)
 #If DBG_RX_VALID Then
@@ -546,7 +725,7 @@ Public Class can2usb
                         If (cmsg.id = Interlocked.Read(CANMessageIDTriggerID)) Then ' probe trigger id and set flag if matched 
                             Interlocked.Exchange(CANMessageIDTriggerFlag, True)
                             Interlocked.Increment(CANMessageIDTriggerCounter)
-                            TriggerEvent.Set()
+                            TriggerEventCAN.Set()
 #If DBG_ID_TRIGGER Then
                             Console.WriteLine("CANMessageIDTriggerID() Matched")
 #End If
@@ -661,7 +840,7 @@ Public Class can2usb
                 s = 0
                 s = SearchBytePattern(START_PATTERN_CANRX, buf, s)
                 While (s > -1)
-                    cmsg = ExtactCANMessage(buf, s)
+                    cmsg = ExtractCANMessage(buf, s)
                     If (cmsg.id >= 0) Then
                         Interlocked.Increment(StatRXValidReceived)
 #If DBG_RX_VALID Then
@@ -678,7 +857,7 @@ Public Class can2usb
                         If (cmsg.id = Interlocked.Read(CANMessageIDTriggerID)) Then
                             Interlocked.Exchange(CANMessageIDTriggerFlag, True)
                             incValue(CANMessageIDTriggerCounter)
-                            TriggerEvent.Set()
+                            TriggerEventCAN.Set()
 #If DBG_ID_TRIGGER Then
                             Console.WriteLine("CANMessageIDTriggerID() Matched")
 #End If
@@ -900,36 +1079,47 @@ Public Class can2usb
     '* Extract received $F CAN message and store into
     '* CANMessage structure element
     '*****************************************************
-    Private Function ExtactCANMessage(ByRef Bytes() As Byte, ByVal start As Integer) As CANMessage
+    Private Function ExtractCANMessage(ByRef buf() As Byte, ByRef start As Integer) As CANMessage
         Dim cmsg As New CANMessage
         Dim i As Short
         Dim crc As Integer = 0
 
+#If DBG_EXTRACT_CAN Then
+        Console.WriteLine("ExtractCANMessage(" & start & ")")
+#End If
         cmsg.used = False
         cmsg.id = -1
         '''''''''''''''''''''''''''''''''''''''''''''''''''
         ' CAN frame with no payload is 8 bytes, so this is the minimum length
         ' of Bytes() otherwise we are fooked
         '''''''''''''''''''''''''''''''''''''''''''''''''''
-        If (Bytes.Length < (start + 7)) Then
+        If (buf.Length < (start + 7)) Then
+            start = -1
+#If DBG_EXTRACT_CAN Then
+            Console.WriteLine("ExtractCANMessage - Minimum length not reached")
+#End If
             Return (cmsg)
         End If
         Try
             '''''''''''''''''''''''''''''''''''''''''''''''''''
             ' Extract .len and prepare .data
             '''''''''''''''''''''''''''''''''''''''''''''''''''
-            cmsg.len = Bytes(2 + start) / 16
+            cmsg.len = buf(2 + start) / 16
             'Console.WriteLine("cmsg.len =" & cmsg.len)
             ' make sure overall message size is long enough now that we know how long the .data is
-            If (Bytes.Length < (start + cmsg.len + 7)) Then
+            If (buf.Length < (start + cmsg.len + 7)) Then
                 cmsg.id = -2
+                start = -1
+#If DBG_EXTRACT_CAN Then
+                Console.WriteLine("ExtractCANMessage - Minimum length not reached after datalen is known")
+#End If
                 Return (cmsg)
             End If
             Array.Resize(cmsg.data, cmsg.len)
         Catch ex As Exception
-            Dim str = "Start: " & start & vbCrLf & "Bytes length: " & Bytes.Length
-            For i = start To Bytes.Length - 1
-                str &= " " & Hex(Bytes(i)) & "{" & i & "}"
+            Dim str = "Start: " & start & vbCrLf & "Bytes length: " & buf.Length
+            For i = start To buf.Length - 1
+                str &= " " & Hex(buf(i)) & "{" & i & "}"
             Next
             MsgBox("Error in decoding CAN Frame - Extracting length" & vbCrLf & str)
         End Try
@@ -938,14 +1128,14 @@ Public Class can2usb
         ' Extract .id
         '''''''''''''''''''''''''''''''''''''''''''''''''''
         Try
-            cmsg.id = (Bytes(2 + start) And &HF) * 256 Or Bytes(3 + start)
-            crc += Bytes(2 + start)
-            crc += Bytes(3 + start)
+            cmsg.id = (buf(2 + start) And &HF) * 256 Or buf(3 + start)
+            crc += buf(2 + start)
+            crc += buf(3 + start)
             'Console.WriteLine("cmsg.id = 0x" & Hex(cmsg.id))
         Catch ex As Exception
-            Dim str = "Start: " & start & vbCrLf & "Bytes len: " & Bytes.Length & vbCrLf
-            For i = start To Bytes.Length - 1
-                str &= " " & Hex(Bytes(i)) & "{" & i & "}"
+            Dim str = "Start: " & start & vbCrLf & "Bytes len: " & buf.Length & vbCrLf
+            For i = start To buf.Length - 1
+                str &= " " & Hex(buf(i)) & "{" & i & "}"
             Next
             MsgBox("Error in decoding CAN Frame - Extracting ID" & vbCrLf & str)
         End Try
@@ -954,13 +1144,13 @@ Public Class can2usb
         '''''''''''''''''''''''''''''''''''''''''''''''''''
         Try
             For i = 0 To cmsg.len - 1
-                cmsg.data(i) = Bytes(4 + start + i)
-                crc += Bytes(4 + start + i)
+                cmsg.data(i) = buf(4 + start + i)
+                crc += buf(4 + start + i)
             Next
         Catch ex As Exception
-            Dim str = "Start: " & start & vbCrLf & "Bytes len: " & Bytes.Length & vbCrLf & "CAN len:" & cmsg.len & vbCrLf & "i:" & i & vbCrLf
-            For i = start To Bytes.Length - 1
-                str &= " " & Hex(Bytes(i)) & "{" & i & "}"
+            Dim str = "Start: " & start & vbCrLf & "Bytes len: " & buf.Length & vbCrLf & "CAN len:" & cmsg.len & vbCrLf & "i:" & i & vbCrLf
+            For i = start To buf.Length - 1
+                str &= " " & Hex(buf(i)) & "{" & i & "}"
             Next
             MsgBox("Error in decoding CAN Frame - Extracting Data" & vbCrLf & str)
         End Try
@@ -969,45 +1159,234 @@ Public Class can2usb
         '''''''''''''''''''''''''''''''''''''''''''''''''''
         Try
             ' check if the message is long enough to have a CRC byte
-            If (Bytes.Length < (4 + start + cmsg.len)) Then
+            If (buf.Length < (4 + start + cmsg.len)) Then
                 cmsg.id = -3
+                start = -1
+#If DBG_EXTRACT_CAN Then
+                Console.WriteLine("ExtractCANMessage - Not long enough for CRC")
+#End If
             Else
                 ' check CRC
-                If (Bytes(4 + cmsg.len + start) <> (crc And &HFF)) Then
+                If (buf(4 + cmsg.len + start) <> (crc And &HFF)) Then
                     ' Console.WriteLine("CRC invalid than expected " & Hex(crc And &HFF) & " expected " & Hex(Bytes(4 + cmsg.len + start)))
                     cmsg.id = -4
+                    start = -1
+#If DBG_EXTRACT_CAN Then
+                    Console.WriteLine("ExtractCANMessage - Invalid CRC")
+#End If
                 End If
             End If
         Catch ex As Exception
-            Dim str = "Start: " & start & vbCrLf & "Bytes len: " & Bytes.Length & vbCrLf & "CAN len:" & cmsg.len & vbCrLf
-            For i = start To Bytes.Length - 1
-                str &= " " & Hex(Bytes(i)) & "{" & i & "}"
+            Dim str = "Start: " & start & vbCrLf & "Bytes len: " & buf.Length & vbCrLf & "CAN len:" & cmsg.len & vbCrLf
+            For i = start To buf.Length - 1
+                str &= " " & Hex(buf(i)) & "{" & i & "}"
             Next
             MsgBox("Error in decoding CAN Frame - checking CRC" & vbCrLf & str)
         End Try
         ' indicate successful extraction
         cmsg.used = True
+        '''''''''''''''''''''''''''''''''''''''''''
+        ' truncate buf()
+        '''''''''''''''''''''''''''''''''''''''''''
+        Dim str_end, str_start
+        Dim buf_copy() As Byte = {}
+        str_start = start
+        str_end = start + 4 + cmsg.len + 1      ' $,F,len,id,crc + data
+        Dim buf_len = buf.Length
+        ' make a working copy of buf()
+        Array.Resize(buf_copy, buf_len)
+        Array.Copy(buf, buf_copy, buf_len)
+        ' empty original buf()            
+        buf = New Byte() {}
+        Dim new_buf_size = buf_len - (str_end - str_start + END_PATTERN.Length)     ' remainder buf len (after msg is extracted)
+#If DBG_EXTRACT_CAN Then
+        Console.WriteLine("Remainder Size: " & new_buf_size)
+#End If
+        If (new_buf_size > 0) Then
+            Array.Resize(buf, new_buf_size)
+            If (str_start > 0) Then                                               ' restore leading buf()
+#If DBG_EXTRACT_CAN Then
+                Console.WriteLine("Leading (0-" & str_start & ")")
+#End If
+                Array.Copy(buf_copy, buf, str_start)
+            End If
+            If (str_end < (buf_len - END_PATTERN.Length)) Then                   ' restore trailing buf()
+#If DBG_EXTRACT_CAN Then
+                Console.WriteLine("Trailing (" & str_end + END_PATTERN.Length & "-" & str_end + END_PATTERN.Length + buf_copy.Length - (str_end + END_PATTERN.Length) & ")")
+#End If
+                Array.Copy(buf_copy, str_end + END_PATTERN.Length, buf, str_start, buf_len - (str_end + END_PATTERN.Length)) ' add trailing part 
+            End If
+#If DBG_EXTRACT_CAN Then
+            PrintBuf(buf, "ExtractCANMessage_REMAINDER")
+#End If
+        End If
         Return (cmsg)
+    End Function
+
+    '*****************************************************
+    '* Extract received $K KLINE message and store into
+    '* KLINEMessage structure element
+    '*****************************************************
+    Private Function ExtractKLINEMessage(ByRef buf() As Byte, ByRef start As Integer) As KLINEMessage
+        Dim kmsg As New KLINEMessage
+        Dim i As Short
+        Dim crc As Integer = 0
+        Dim str_end As Integer
+
+#If DBG_EXTRACT_KLINE Then
+        Console.WriteLine("ExtractKLINEMessage(" & start & ")")
+        PrintBuf(buf, "ExtractKLINEMessage")
+#End If
+        kmsg.used = False
+        kmsg.status = -1
+        '''''''''''''''''''''''''''''''''''''''''''''''''''
+        ' KLINE frame with no payload is 2 bytes, so this is the minimum length
+        ' of Bytes() otherwise we are fooked
+        '''''''''''''''''''''''''''''''''''''''''''''''''''
+        If (buf.Length < (start + 7)) Then
+            start = -1
+#If DBG_EXTRACT_KLINE Then
+            Console.WriteLine("ExtractKLINEMessage - Minimum length not reached")
+#End If
+            Return (kmsg)
+        End If
+        Try
+            '''''''''''''''''''''''''''''''''''''''''''''''''''
+            ' Extract .len and prepare .data
+            '''''''''''''''''''''''''''''''''''''''''''''''''''
+            str_end = SearchBytePattern(END_PATTERN, buf, start)
+            If (str_end = -1) Then
+                kmsg.status = -1
+                Return (kmsg)
+            End If
+
+            kmsg.len = str_end - start - 4 - START_PATTERN_KLINERX.Length
+            'Console.WriteLine("kmsg.len =" & kmsg.len)
+            Array.Resize(kmsg.data, kmsg.len)
+        Catch ex As Exception
+            Dim str = "Start: " & start & vbCrLf & "Bytes length: " & buf.Length
+            For i = start To buf.Length - 1
+                str &= " " & Hex(buf(i)) & "{" & i & "}"
+            Next
+            MsgBox("Error in decoding KLINE Frame - Extracting length" & vbCrLf & str)
+        End Try
+        '''''''''''''''''''''''''''''''''''''''''''''''''''
+        ' Extract .data
+        '''''''''''''''''''''''''''''''''''''''''''''''''''
+        Try
+            For i = 0 To kmsg.len - 1
+                kmsg.data(i) = buf(start + START_PATTERN_KLINERX.Length + 3 + i)
+                'Console.WriteLine(Hex(kmsg.data(i)))
+            Next
+        Catch ex As Exception
+            Dim str = "Start: " & start & vbCrLf & "Bytes len: " & buf.Length & vbCrLf & "KLINE len:" & kmsg.len & vbCrLf & "i:" & i & vbCrLf
+            For i = start To buf.Length - 1
+                str &= " " & Hex(buf(i)) & "{" & i & "}"
+            Next
+            MsgBox("Error in decoding KLINE Frame - Extracting Data" & vbCrLf & str)
+        End Try
+        '''''''''''''''''''''''''''''''''''''''''''''''''''
+        ' Check location of CRC and its value
+        '''''''''''''''''''''''''''''''''''''''''''''''''''
+        Try
+            ' calc CRC
+            For i = start + START_PATTERN_KLINERX.Length To start + START_PATTERN_KLINERX.Length + 3 + kmsg.len - 1
+                crc += buf(i)
+            Next
+            ' check CRC
+            If (buf(start + START_PATTERN_KLINERX.Length + 3 + kmsg.len) <> (crc And &HFF)) Then
+                ' Console.WriteLine("CRC invalid than expected " & Hex(crc And &HFF) & " expected " & Hex(Bytes(4 + cmsg.len + start)))
+                kmsg.status = -4
+                start = -1
+#If DBG_EXTRACT_KLINE Then
+                Console.WriteLine("ExtractKLINEMessage - Invalid CRC")
+#End If
+            End If
+
+        Catch ex As Exception
+            Dim str = "Start: " & start & vbCrLf & "Bytes len: " & buf.Length & vbCrLf & "KLINE len:" & kmsg.len & vbCrLf
+            For i = start To buf.Length - 1
+                str &= " " & Hex(buf(i)) & "{" & i & "}"
+            Next
+            MsgBox("Error in decoding CAN Frame - checking CRC" & vbCrLf & str)
+        End Try
+        ' indicate successful extraction
+        kmsg.used = True
+        kmsg.status = 0
+
+
+        '''''''''''''''''''''''''''''''''''''''''''
+        ' truncate buf()
+        '''''''''''''''''''''''''''''''''''''''''''
+        Dim str_start
+        Dim buf_copy() As Byte = {}
+        str_start = start
+        Dim buf_len = buf.Length
+        ' make a working copy of buf()
+        Array.Resize(buf_copy, buf_len)
+        Array.Copy(buf, buf_copy, buf_len)
+        ' empty original buf()            
+        buf = New Byte() {}
+        Dim new_buf_size = buf_len - (str_end - str_start + END_PATTERN.Length)     ' remainder buf len (after msg is extracted)
+#If DBG_EXTRACT_KLINE Then
+        Console.WriteLine("Remainder Size: " & new_buf_size)
+#End If
+        If (new_buf_size > 0) Then
+            Array.Resize(buf, new_buf_size)
+            If (str_start > 0) Then                                               ' restore leading buf()
+#If DBG_EXTRACT_KLINE Then
+                Console.WriteLine("Leading (0-" & str_start & ")")
+#End If
+                Array.Copy(buf_copy, buf, str_start)
+            End If
+            If (str_end < (buf_len - END_PATTERN.Length)) Then                   ' restore trailing buf()
+#If DBG_EXTRACT_KLINE Then
+                Console.WriteLine("Trailing (" & str_end + END_PATTERN.Length & "-" & str_end + END_PATTERN.Length + buf_copy.Length - (str_end + END_PATTERN.Length) & ")")
+#End If
+                Array.Copy(buf_copy, str_end + END_PATTERN.Length, buf, str_start, buf_len - (str_end + END_PATTERN.Length)) ' add trailing part 
+            End If
+#If DBG_EXTRACT_KLINE Then
+            PrintBuf(buf, "ExtractCANMessage_REMAINDER")
+#End If
+        End If
+        Return (kmsg)
     End Function
 
     '*****************************************************
     '* search for pattern in Bytes() starting from start 
     '* offset - used to identfy data blocks in $F messages   
     '*****************************************************
-    Public Shared Function SearchBytePattern(ByRef pattern() As Byte, ByRef Bytes() As Byte, ByVal start As Integer) As Integer
+    Public Function SearchBytePattern(ByRef pattern() As Byte, ByRef Bytes() As Byte, ByVal start As Integer) As Integer
+
+        If (Bytes Is Nothing) Then Return -1
+        If (start = -1) Then Return -1
+
         Dim matches As Integer = -1
         Dim i, j As Integer
         Dim ismatch As Boolean
-        Dim maxloop As Integer = Bytes.Length - pattern.Length      ' precomputing this shaves some seconds from the loop execution
+        Dim maxloop As Integer = Bytes.Length - pattern.Length + 1     ' precomputing this shaves some seconds from the loop execution
 
-        'Console.WriteLine("maxloop: " & maxloop)
+#If DBG_EXTRACT_SEARCH Then
+        Console.Write("SearchBytePattern(" & start & "-" & maxloop & "): ")
+        For i = 0 To pattern.Length - 1
+            Console.Write(" 0x" & Hex(pattern(i)))
+        Next i
+        Console.WriteLine("")
+#End If
         For i = start To maxloop - 1
             If (pattern(0) = Bytes(i)) Then         ' first byte in pattern matches in Bytes
+#If DBG_EXTRACT_SEARCH Then
+                Console.WriteLine(" * SearchBytePattern 0x" & Hex(pattern(0)) & " matched at " & i)
+#End If
                 ismatch = True
                 For j = 1 To pattern.Length - 1
                     If (Bytes(i + j) <> pattern(j)) Then
                         ismatch = False
                         Exit For
+#If DBG_EXTRACT_SEARCH Then
+                    Else
+                        Console.WriteLine(" * SearchBytePattern 0x" & Hex(pattern(j)) & " matched at " & i + j)
+#End If
                     End If
                 Next j
                 If (ismatch) Then
@@ -1069,8 +1448,31 @@ Public Class can2usb
     '* Return adapter version
     '*****************************************************
     Public Function GetVersion() As String
-        Return ("can2usb-1.2")
+        Return (version_string)
     End Function
+
+    '*****************************************************
+    '* Trigger $VER query to populate "version_string"
+    '*****************************************************
+    Public Sub SendGetVersion()
+        Dim query As String = "$VER" & vbCrLf
+        If (UsingSerial AndAlso ComPort.IsOpen) Then
+            ComPort.Write(query)
+        End If
+        If (Not UsingSerial AndAlso tcpClient.IsOpen) Then
+            tcpClient.Send(query)
+        End If
+    End Sub
+
+    '*****************************************************
+    '* Trigger K-LINE Slow Init ($KSI)
+    '*****************************************************
+    Public Sub SendKLINEInit()
+        Dim query As String = "$KSI" & vbCrLf
+        If (UsingSerial AndAlso ComPort.IsOpen) Then
+            ComPort.Write(query)
+        End If
+    End Sub
 
     '*****************************************************
     '* Initialize adapter
@@ -1104,6 +1506,33 @@ Public Class can2usb
             Return (True)
         End If
         Return (False)
+    End Function
+
+    '*****************************************************
+    '* Send KLINE request (no waiting)
+    '*****************************************************
+    Public Function SendKLINEMessage(ByVal Request As KLINEMessage) As Boolean
+        Dim r As Boolean = False
+        Dim crc As Integer = 0
+
+        If (is_open) Then
+            If (UsingSerial AndAlso ComPort.IsOpen) Then
+                Dim query As String = "$K," & Hex(Request.len + 1)
+                For i As Integer = 0 To Request.len - 1
+                    query &= "," & Hex(Request.data(i))
+                    crc += Request.data(i)
+                Next
+                Request.crc = crc And &HFF
+                query &= "," & Hex(Request.crc)
+                query &= vbCrLf
+                ResetKLINEMessages()
+                ResetKLINEMessageIDTrigger()
+                ComPort.Write(query)
+                Console.WriteLine("SendKLINEMessage() = " & query)
+                r = WaitForKLINEMessageIDTrigger()
+            End If
+        End If
+        Return (r)
     End Function
 
 End Class
