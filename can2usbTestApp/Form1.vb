@@ -43,6 +43,7 @@ Public Class Form1
             TBRXWaitForIDTimeouts.Text = ECU.Adapter.GetRXWaitForIDTimeouts()
             TBTriggerHit.Text = ECU.Adapter.GetCANMessageIDTrigger
             TBCANMessagesIdx.Text = ECU.Adapter.GetCANMessagesIdx()
+            TBKLINEMessagesIdx.Text = ECU.Adapter.GetKLINEMessagesIdx()
             TBBurstCount.Text = burstcounter
             TBMemoryReadCounter.Text = memoryreadcounter
         Else
@@ -53,6 +54,7 @@ Public Class Form1
             TBRXWaitForIDTimeouts.Text = "not connected"
             TBTriggerHit.Text = "not connected"
             TBCANMessagesIdx.Text = "not connected"
+            TBKLINEMessagesIdx.Text = "not connected"
             TBBurstCount.Text = "not connected"
             TBMemoryReadCounter.Text = "not connected"
         End If
@@ -280,7 +282,8 @@ Public Class Form1
                 SimulateOBDRead()
             End If
             If (CBKLINEOBD.Checked) Then
-                SimulateKLINEOBDRead(&H9, &H2)
+                'SimulateKLINEOBDRead(&H9, &H2)
+                SimulateKLINEOBDRead(&H1, &HC)
             End If
         End If
     End Sub
@@ -401,7 +404,7 @@ Public Class Form1
         kmsg.data(2) = &HF1         ' TEST ID (SOURCE)
         kmsg.data(3) = Mode          ' MODE
         kmsg.data(4) = Pid          ' PID
-        ECU.Adapter.SendKLINEMessage(kmsg)
+        ECU.Adapter.SendAndWaitForKLINEMessage(kmsg)
         Dim kb() As can2usbDLL.can2usb.KLINEMessage
 
         kb = ECU.Adapter.GetKLINEMessagesBuffer()

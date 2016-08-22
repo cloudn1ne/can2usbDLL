@@ -66,6 +66,8 @@ Partial Class Form1
         Me.FolderBrowserDialog_download = New System.Windows.Forms.FolderBrowserDialog()
         Me.LblCopyright = New System.Windows.Forms.Label()
         Me.Button6 = New System.Windows.Forms.Button()
+        Me.Label10 = New System.Windows.Forms.Label()
+        Me.TBKLINEMessagesIdx = New System.Windows.Forms.TextBox()
         Me.GroupBox1.SuspendLayout()
         Me.GroupBox2.SuspendLayout()
         Me.SuspendLayout()
@@ -122,6 +124,8 @@ Partial Class Form1
         '
         'GroupBox1
         '
+        Me.GroupBox1.Controls.Add(Me.TBKLINEMessagesIdx)
+        Me.GroupBox1.Controls.Add(Me.Label10)
         Me.GroupBox1.Controls.Add(Me.TBMemoryReadCounter)
         Me.GroupBox1.Controls.Add(Me.Label9)
         Me.GroupBox1.Controls.Add(Me.TBBurstCount)
@@ -165,7 +169,7 @@ Partial Class Form1
         '
         'TBBurstCount
         '
-        Me.TBBurstCount.Location = New System.Drawing.Point(111, 103)
+        Me.TBBurstCount.Location = New System.Drawing.Point(325, 104)
         Me.TBBurstCount.Name = "TBBurstCount"
         Me.TBBurstCount.Size = New System.Drawing.Size(100, 20)
         Me.TBBurstCount.TabIndex = 14
@@ -173,7 +177,7 @@ Partial Class Form1
         'Label8
         '
         Me.Label8.AutoSize = True
-        Me.Label8.Location = New System.Drawing.Point(3, 106)
+        Me.Label8.Location = New System.Drawing.Point(255, 107)
         Me.Label8.Name = "Label8"
         Me.Label8.Size = New System.Drawing.Size(65, 13)
         Me.Label8.TabIndex = 13
@@ -450,6 +454,22 @@ Partial Class Form1
         Me.Button6.Text = "KLINE Mode 1"
         Me.Button6.UseVisualStyleBackColor = True
         '
+        'Label10
+        '
+        Me.Label10.AutoSize = True
+        Me.Label10.Location = New System.Drawing.Point(2, 107)
+        Me.Label10.Name = "Label10"
+        Me.Label10.Size = New System.Drawing.Size(109, 13)
+        Me.Label10.TabIndex = 17
+        Me.Label10.Text = "KLINE Messages Idx:"
+        '
+        'TBKLINEMessagesIdx
+        '
+        Me.TBKLINEMessagesIdx.Location = New System.Drawing.Point(111, 104)
+        Me.TBKLINEMessagesIdx.Name = "TBKLINEMessagesIdx"
+        Me.TBKLINEMessagesIdx.Size = New System.Drawing.Size(100, 20)
+        Me.TBKLINEMessagesIdx.TabIndex = 18
+        '
         'Form1
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(6.0!, 13.0!)
@@ -522,4 +542,6 @@ Partial Class Form1
     Friend WithEvents Button5 As Button
     Friend WithEvents CBKLINEOBD As CheckBox
     Friend WithEvents Button6 As Button
+    Friend WithEvents TBKLINEMessagesIdx As TextBox
+    Friend WithEvents Label10 As Label
 End Class
