@@ -180,7 +180,7 @@ Public Class can2usb
             'sw.AutoFlush = True
             'Console.SetOut(sw)
             UsingSerial = False
-            ShieldTimeout = 133 * 50
+            ShieldTimeout = 32767
             tcpClient = New AsyncSocket
             ' Next 2 lines for possible later implementation, if needed
             'tcpClient.ReceiveTimeout = ShieldTimeout
@@ -443,7 +443,7 @@ Public Class can2usb
         sw.Start()
         While (Interlocked.Read(CANMessageIDTriggerFlag) = False)
             TriggerEventCAN.WaitOne(New TimeSpan(0, 0, 1))
-            If (sw.ElapsedMilliseconds > ShieldTimeout) Then
+            If UsingSerial AndAlso (sw.ElapsedMilliseconds > ShieldTimeout) Then
 #If DBG_ID_TRIGGER_TO Then
                 Console.WriteLine("WaitForCANMessageIDTrigger(0x" & Hex(CANMessageIDTriggerID) & ") - timeout")
 #End If
@@ -488,8 +488,8 @@ Public Class can2usb
         sw.Reset()
         sw.Start()
         While (Interlocked.Read(CANMessageIDTriggerFlag) = False)
-            TriggerEventCAN.WaitOne(New TimeSpan(0, 0, 1))
-            If UsingSerial AndAlso (sw.ElapsedMilliseconds > ShieldTimeout) Then
+            TriggerEvent.WaitOne(New TimeSpan(0, 0, 1))
+            If (sw.ElapsedMilliseconds > Timeout) Then
 #If DBG_ID_TRIGGER_TO Then
                 Console.WriteLine("WaitForCANMessageIDTrigger(0x" & Hex(CANMessageIDTriggerID) & ") - timeout")
 #End If
