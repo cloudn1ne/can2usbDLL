@@ -40,6 +40,7 @@ Public Class can2usb
     Private START_PATTERN_KLINERX() As Byte = System.Text.Encoding.ASCII.GetBytes("$KO")
     Private START_PATTERN_KLINEINIT() As Byte = System.Text.Encoding.ASCII.GetBytes("$KSI,")
     Private START_PATTERN_ERROR() As Byte = System.Text.Encoding.ASCII.GetBytes("$E,")
+    Private START_PATTERN_TIMESTAMP() As Byte = System.Text.Encoding.ASCII.GetBytes("$T,")
     Private END_PATTERN() As Byte = {&HD, &HA} ' = \r\n
     Private START_PATTERN_KLINE_OBD_MULTIFRAME() As Byte = {&H48, &H6B, &H10, &H49, &H2}
 
@@ -638,6 +639,23 @@ Public Class can2usb
                 End Try
             End If
             s = SearchBytePattern(START_PATTERN_VER, buf, s)
+        End While
+
+        '************************************************
+        '* Extract $T (Timestamp)
+        '************************************************
+        s = SearchBytePattern(START_PATTERN_TIMESTAMP, buf, 0)
+        While (s > -1)
+            msg = ExtractMessage(buf, s)
+            If (msg IsNot Nothing) Then
+                Try
+                    Dim ar() As String = System.Text.Encoding.ASCII.GetString(msg).Split(stringSeparators, StringSplitOptions.None)
+                    ' timestamp = = ar(1)
+                Catch ex As Exception
+                    ' timestamp = error value ?
+                End Try
+            End If
+            s = SearchBytePattern(START_PATTERN_TIMESTAMP, buf, s)
         End While
 
         '************************************************
