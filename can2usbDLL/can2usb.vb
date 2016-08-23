@@ -534,7 +534,7 @@ Public Class can2usb
                         c += 60
                 End Select
             End If
-            TriggerEvent.WaitOne(New TimeSpan(0, 0, 0, 0, 1))
+            TriggerEventCAN.WaitOne(New TimeSpan(0, 0, 0, 0, 1))
         End While
 #If DBG_ID_TRIGGER_TO Then
         Console.WriteLine("WaitForNumOfCANMessageIDTriggers(0x" & Hex(CANMessageIDTriggerID) & ") - Success")
