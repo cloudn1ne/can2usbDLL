@@ -642,7 +642,7 @@ Public Class can2usb
         End While
 
         '************************************************
-        '* Extract $T (Timestamp)
+        '* Extract $T (Timestamp) (Rasp)
         '************************************************
         s = SearchBytePattern(START_PATTERN_TIMESTAMP, buf, 0)
         While (s > -1)
