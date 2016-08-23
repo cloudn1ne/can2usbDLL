@@ -488,7 +488,7 @@ Public Class can2usb
         sw.Reset()
         sw.Start()
         While (Interlocked.Read(CANMessageIDTriggerFlag) = False)
-            TriggerEvent.WaitOne(New TimeSpan(0, 0, 1))
+            TriggerEventCAN.WaitOne(New TimeSpan(0, 0, 1))
             If (sw.ElapsedMilliseconds > Timeout) Then
 #If DBG_ID_TRIGGER_TO Then
                 Console.WriteLine("WaitForCANMessageIDTrigger(0x" & Hex(CANMessageIDTriggerID) & ") - timeout")
@@ -1107,13 +1107,14 @@ Public Class can2usb
                         query &= "," & Hex(Request.data(i))
                     Next
                     query &= vbCrLf
+                    'Console.WriteLine("SendAndWaitForCANMessageID()" & query)
                     If UsingSerial Then
                         ComPort.Write(query)
+                        r = WaitForCANMessageIDTrigger()
                     Else
                         tcpClient.Send(query)
+                        r = WaitForCANMessageIDTrigger(1000)
                     End If
-                    'Console.WriteLine("SendAndWaitForCANMessageID()" & query)
-                    r = WaitForCANMessageIDTrigger()
                 End If
             End If
         End If
@@ -1635,7 +1636,7 @@ Public Class can2usb
     '* 2012 - $KSI - did not receive 0xCC acknowledge to inverted KW2
     Private Sub ErrorHandler(ByVal error_code As Integer)
 #If DBG_ERROR_HANDLER Then
-        Console.writeline("Error: " & error_code)
+        Console.WriteLine("Error: " & error_code)
 #End If
         Select Case error_code
             Case 2001 To 2002               ' we lost K-Line sync ?
