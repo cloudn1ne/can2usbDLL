@@ -48,9 +48,6 @@
     <OptionInfer>On</OptionInfer>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="can2usbDLL">
-      <HintPath>..\can2usbDLL\bin\Release\can2usbDLL.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Data" />
     <Reference Include="System.Deployment" />
@@ -152,6 +149,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\reload_icon.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\can2usbDLL\can2usbDLL.vbproj">
+      <Project>{d75ee7bd-43db-4711-878e-a4be18866252}</Project>
+      <Name>can2usbDLL</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

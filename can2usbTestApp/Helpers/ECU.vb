@@ -5,7 +5,7 @@
 
 
 '#Const DBG_READOBD = 1
-#Const DBG_MEMREAD = 1
+'#Const DBG_MEMREAD = 1
 Public Class ECU
     Public Shared Adapter As New can2usbDLL.can2usb
     Public Shared AccessLevel As New ECUAccessLevel
@@ -97,7 +97,11 @@ Public Class ECU
 #If DBG_MEMREAD Then
                     Console.WriteLine("RBytes:")
                     For j As Integer = 0 To cb(i).len - 1
-                        Console.Write(" 0x" & Hex(cb(i).data(j)))
+                        If (cb(i).data(j) < &H20) Or (cb(i).data(j) > &H7E) Then
+                            Console.Write(" 0x" & Hex(cb(i).data(j)))
+                        Else
+                            Console.Write(Chr(cb(i).data(j)))
+                        End If
                     Next
                     Console.WriteLine("")
 #End If
