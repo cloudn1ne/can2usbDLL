@@ -489,7 +489,7 @@ Public Class can2usb
         sw.Start()
         While (Interlocked.Read(CANMessageIDTriggerFlag) = False)
             TriggerEventCAN.WaitOne(New TimeSpan(0, 0, 1))
-            If (sw.ElapsedMilliseconds > Timeout) Then
+            If UsingSerial AndAlso (sw.ElapsedMilliseconds > ShieldTimeout) Then
 #If DBG_ID_TRIGGER_TO Then
                 Console.WriteLine("WaitForCANMessageIDTrigger(0x" & Hex(CANMessageIDTriggerID) & ") - timeout")
 #End If
@@ -508,24 +508,33 @@ Public Class can2usb
     '**************************************************************************
     Private Function WaitForNumOfCANMessageIDTriggers(ByVal num As Integer) As Boolean
         Dim sw As New Stopwatch
-        Dim c As Integer = ShieldTimeout
+        Dim b As Boolean
+        Dim c As Integer = 10
 
-        If ShieldTimeout > 100 Then
-            c = (1 + num / 64) * ShieldTimeout
-        End If
         sw.Reset()
         sw.Start()
         While (getValue(CANMessageIDTriggerCounter) < num)
-            If (sw.ElapsedMilliseconds > c) Then
+            If UsingSerial AndAlso (sw.ElapsedMilliseconds > ShieldTimeout) Then
 #If DBG_ID_TRIGGER_TO Then
                 Console.WriteLine("WaitForNumOfCANMessageIDTriggers(0x" & Hex(CANMessageIDTriggerID) & ") - TIMEOUT")
-                Console.WriteLine(d & "/" & num & " in " & c & " ms")
+                Console.WriteLine(d & "/" & num & " in " & sw.ElapsedMilliseconds & " ms")
                 'Console.WriteLine("TIMEOUT")
 #End If
                 Interlocked.Increment(StatRXWaitForIDTimeouts)
                 Return (False)
+                'With PiCan2, if car is not powered on, this will loop forever so if no messages received print a warning
+            ElseIf Not UsingSerial AndAlso (getValue(CANMessageIDTriggerCounter) = 0) AndAlso (sw.ElapsedMilliseconds > (c * 1000)) Then
+                Select Case MsgBox("Is car ignition on?", MsgBoxStyle.YesNo, "No Response")
+                    Case MsgBoxResult.No
+                        ' Close and Exit
+                        Me.Disconnect()
+                        Environment.Exit(0)
+                    Case MsgBoxResult.Yes
+                        ' Wait another minute
+                        c += 60
+                End Select
             End If
-            TriggerEventCAN.WaitOne(New TimeSpan(0, 0, 0, 0, 1))
+            TriggerEvent.WaitOne(New TimeSpan(0, 0, 0, 0, 1))
         End While
 #If DBG_ID_TRIGGER_TO Then
         Console.WriteLine("WaitForNumOfCANMessageIDTriggers(0x" & Hex(CANMessageIDTriggerID) & ") - Success")
@@ -533,6 +542,7 @@ Public Class can2usb
 #End If
         Return (True)
     End Function
+
 
     Private Sub PrintBuf(buf() As Byte, ByVal dbg_name As String)
         If (buf.Length = 0) Then Return
