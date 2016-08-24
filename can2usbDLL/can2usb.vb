@@ -524,8 +524,8 @@ Public Class can2usb
                 Interlocked.Increment(StatRXWaitForIDTimeouts)
                 Return (False)
                 'With PiCan2, if car is not powered on, this will loop forever so if no messages received print a warning
-            ElseIf Not UsingSerial AndAlso (getValue(CANMessageIDTriggerCounter) = 0) AndAlso (sw.ElapsedMilliseconds > (c * 1000)) Then
-                Select Case MsgBox("Is car ignition on?", MsgBoxStyle.YesNo, "No Response")
+            ElseIf Not UsingSerial AndAlso (sw.ElapsedMilliseconds > (c * 1000)) AndAlso (getValue(CANMessageIDTriggerCounter) = 0) Then
+                Select Case MsgBox("Received " & getValue(CANMessageIDTriggerCounter) & " of " & num & " messages. Is car ignition on?", MsgBoxStyle.YesNo, "No Response")
                     Case MsgBoxResult.No
                         ' Close and Exit
                         Me.Disconnect()
@@ -853,7 +853,7 @@ Public Class can2usb
                         AddCANMessage(cmsg) ' message decoded fine, store for later use
                         If (cmsg.id = Interlocked.Read(CANMessageIDTriggerID)) Then ' probe trigger id and set flag if matched 
                             Interlocked.Exchange(CANMessageIDTriggerFlag, True)
-                            Interlocked.Increment(CANMessageIDTriggerCounter)
+                            incValue(CANMessageIDTriggerCounter)
                             TriggerEventCAN.Set()
 #If DBG_ID_TRIGGER Then
                             Console.WriteLine("CANMessageIDTriggerID() Matched")
@@ -1445,7 +1445,7 @@ Public Class can2usb
         Dim maxloop As Integer = Bytes.Length - pattern.Length + 1     ' precomputing this shaves some seconds from the loop execution
 
 #If DBG_EXTRACT_SEARCH Then
-       Console.Write("SearchBytePattern(" & start & "-" & maxloop & "): ")
+        Console.Write("SearchBytePattern(" & start & "-" & maxloop & "): ")
         For i = 0 To pattern.Length - 1
             Console.Write(" 0x" & Hex(pattern(i)))
         Next i
@@ -1463,7 +1463,7 @@ Public Class can2usb
                         Exit For
 #If DBG_EXTRACT_SEARCH Then
                     Else
-                       Console.WriteLine(" * SearchBytePattern 0x" & Hex(pattern(j)) & " matched at " & i + j)
+                        Console.WriteLine(" * SearchBytePattern 0x" & Hex(pattern(j)) & " matched at " & i + j)
 #End If
                     End If
                 Next j
