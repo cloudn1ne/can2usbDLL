@@ -1,6 +1,6 @@
 ﻿'*********************************************************************************************
 '* can2usb dll for arduino/genuino + sparkfun/seedstudio shield or raspberry pi + pican2
-'* version 1.1
+'* version 1.2
 '* (c) Georg Swoboda 2016 <cn@warp.at>, Robert Baizer
 '*********************************************************************************************
 Imports System
