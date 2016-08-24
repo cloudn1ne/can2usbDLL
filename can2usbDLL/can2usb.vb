@@ -22,7 +22,7 @@ Imports System.IO
 '#Const DBG_EXTRACT_SEARCH = 1
 '#Const DBG_EXTRACT_CAN = 1
 '#Const DBG_EXTRACT_KLINE = 1
-#Const DBG_ERROR_HANDLER = 1
+'#Const DBG_ERROR_HANDLER = 1
 
 Public Class can2usb
     'Private fs As FileStream
@@ -175,7 +175,7 @@ Public Class can2usb
             Me.Disconnect()
         End If
         Try
-            'fs = New FileStream("C:\Users\Jacob\Source\Repos\T4e-ECU-Editor\bin\Debug\comlog.txt", FileMode.Create)
+            'fs = New FileStream("comlog.txt", FileMode.Create)
             'sw = New StreamWriter(fs)
             'sw.AutoFlush = True
             'Console.SetOut(sw)
@@ -203,6 +203,7 @@ Public Class can2usb
             If UsingSerial Then
                 ComPort.Close()
             Else
+                'sw.Close()
                 tcpClient.Close()
             End If
         End If
@@ -517,7 +518,7 @@ Public Class can2usb
             If UsingSerial AndAlso (sw.ElapsedMilliseconds > ShieldTimeout) Then
 #If DBG_ID_TRIGGER_TO Then
                 Console.WriteLine("WaitForNumOfCANMessageIDTriggers(0x" & Hex(CANMessageIDTriggerID) & ") - TIMEOUT")
-                Console.WriteLine(d & "/" & num & " in " & sw.ElapsedMilliseconds & " ms")
+                Console.WriteLine(getValue(CANMessageIDTriggerCounter) & "/" & num & " in " & sw.ElapsedMilliseconds & " ms")
                 'Console.WriteLine("TIMEOUT")
 #End If
                 Interlocked.Increment(StatRXWaitForIDTimeouts)
@@ -784,7 +785,7 @@ Public Class can2usb
                 AddCANMessage(cmsg) ' message decoded fine, store for later use
                 If (cmsg.id = Interlocked.Read(CANMessageIDTriggerID)) Then ' probe trigger id and set flag if matched 
                     Interlocked.Exchange(CANMessageIDTriggerFlag, True)
-                    Interlocked.Increment(CANMessageIDTriggerCounter)
+                    incValue(CANMessageIDTriggerCounter)
                     TriggerEventCAN.Set()
                 End If
             Else ' there was an error extracting the CAN message
@@ -936,7 +937,6 @@ Public Class can2usb
         If tcpClient.IsOpen Then
             Try
                 Dim buf_len As Integer = buf.Length
-
                 'Dim ser_len As Integer
                 'ser_len = tmp_buf.Length
 #If DBG_RX_IN Then
@@ -953,6 +953,9 @@ Public Class can2usb
                 Array.Resize(buf, buf_len + ser_len)
                 ' append data from tcpClient to buf()
                 Array.Copy(tmp_buf, 0, buf, buf_len, ser_len)
+                ExtractKnownMessages(buf)                ' extract (and remove) msgs from buf()             
+                Console.WriteLine(buf.Length)
+                Exit Sub
 #If DBG_RX_IN Then
                 msg_str = ""
                 For i = 0 To buf.Length - 1
@@ -1442,7 +1445,7 @@ Public Class can2usb
         Dim maxloop As Integer = Bytes.Length - pattern.Length + 1     ' precomputing this shaves some seconds from the loop execution
 
 #If DBG_EXTRACT_SEARCH Then
-        Console.Write("SearchBytePattern(" & start & "-" & maxloop & "): ")
+       Console.Write("SearchBytePattern(" & start & "-" & maxloop & "): ")
         For i = 0 To pattern.Length - 1
             Console.Write(" 0x" & Hex(pattern(i)))
         Next i
@@ -1460,7 +1463,7 @@ Public Class can2usb
                         Exit For
 #If DBG_EXTRACT_SEARCH Then
                     Else
-                        Console.WriteLine(" * SearchBytePattern 0x" & Hex(pattern(j)) & " matched at " & i + j)
+                       Console.WriteLine(" * SearchBytePattern 0x" & Hex(pattern(j)) & " matched at " & i + j)
 #End If
                     End If
                 Next j
