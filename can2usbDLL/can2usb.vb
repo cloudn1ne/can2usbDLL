@@ -79,6 +79,10 @@ Public Class can2usb
     ' $VER handling
     Private version_string As String = "unknown"
 
+    ' $T handling
+    Private lastTread As Long = 0
+    Private lastTreadTime As Long = 0
+
     ' $E handling
     Private error_code As Integer = 0
 
@@ -97,6 +101,7 @@ Public Class can2usb
         Dim id As Integer
         Dim len As Integer
         Dim data() As Byte
+        Dim timestamp As Long
         Dim used As Boolean
     End Structure
 
@@ -661,9 +666,11 @@ Public Class can2usb
             If (msg IsNot Nothing) Then
                 Try
                     Dim ar() As String = System.Text.Encoding.ASCII.GetString(msg).Split(stringSeparators, StringSplitOptions.None)
-                    ' timestamp = = ar(1)
+                    lastTread = ar(1)
+                    lastTreadTime = Date.Now.Ticks
                 Catch ex As Exception
-                    ' timestamp = error value ?
+                    lastTread = 0
+                    lastTreadTime = 0
                 End Try
             End If
             s = SearchBytePattern(START_PATTERN_TIMESTAMP, buf, s)
@@ -782,14 +789,20 @@ Public Class can2usb
             cmsg = ExtractCANMessage(buf, s)
             If (cmsg.id >= 0) Then
                 Interlocked.Increment(StatRXValidReceived)
+                If (lastTread > 0) AndAlso ((Date.Now.Ticks - lastTreadTime) < 5 * 10 * 1000 * 1000) Then
+                    cmsg.timestamp = lastTread
+                Else
+                    Dim epochstart As Date = #1/1/1970 0:0:0#
+                    cmsg.timestamp = (Date.Now.Ticks - epochstart.Ticks) / 10000
+                End If
                 AddCANMessage(cmsg) ' message decoded fine, store for later use
                 If (cmsg.id = Interlocked.Read(CANMessageIDTriggerID)) Then ' probe trigger id and set flag if matched 
-                    Interlocked.Exchange(CANMessageIDTriggerFlag, True)
-                    incValue(CANMessageIDTriggerCounter)
-                    TriggerEventCAN.Set()
-                End If
-            Else ' there was an error extracting the CAN message
-                If (cmsg.id < 0) Then
+                        Interlocked.Exchange(CANMessageIDTriggerFlag, True)
+                        incValue(CANMessageIDTriggerCounter)
+                        TriggerEventCAN.Set()
+                    End If
+                Else ' there was an error extracting the CAN message
+                    If (cmsg.id < 0) Then
                     If (cmsg.id = -4) Then  ' CRC Error
                         Interlocked.Increment(StatRXCRCErrors)
                     End If

@@ -73,8 +73,18 @@ Public Class AsyncSocket
 
         Catch ex As Exception
 
-            MsgBox("AsyncSocket:  Connect() error " & ex.Message)
-
+            If InStr(ex.Message, "actively refused", CompareMethod.Text) > 0 Then
+                Select Case MsgBox("canserver not running.  Try again?", MsgBoxStyle.YesNo, "Connection Refused")
+                    Case MsgBoxResult.No
+                        ' Exit
+                        Environment.Exit(0)
+                    Case MsgBoxResult.Yes
+                        ' Try again
+                        Connect(hostIP, hostPort)
+                End Select
+            Else
+                MsgBox("AsyncSocket:  Connect() error " & ex.Message)
+            End If
         End Try
 
     End Sub
