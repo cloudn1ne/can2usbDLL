@@ -27,10 +27,13 @@ Imports System.IO
 Public Class can2usb
     'Private fs As FileStream
     'Private sw As StreamWriter
+    Private dlfs As FileStream
+    Private dlbr As BinaryReader
 
     Private ComPort As SerialPort
     Private WithEvents tcpClient As AsyncSocket
-    Private UsingSerial As Boolean = True
+    Private Datasource As SourceType
+    Public DatalogFileOpen As Boolean = False
     Private is_open As Boolean = False
 
     '   Public Shared recv_buffer As String = ""
@@ -96,6 +99,13 @@ Public Class can2usb
         PiCAN2 = 3
     End Enum
 
+    ' Data sources
+    Public Enum SourceType As Integer
+        Serial = 1
+        TCP = 2
+        DatalogFile = 3
+    End Enum
+
     ' CAN message structure
     Structure CANMessage
         Dim id As Integer
@@ -140,6 +150,8 @@ Public Class can2usb
             Me.Disconnect()
         End If
         Try
+            Datasource = SourceType.Serial
+            DatalogFileOpen = False
             ComPort = New SerialPort
             With ComPort
                 .PortName = COMPortName
@@ -184,7 +196,8 @@ Public Class can2usb
             'sw = New StreamWriter(fs)
             'sw.AutoFlush = True
             'Console.SetOut(sw)
-            UsingSerial = False
+            Datasource = SourceType.TCP
+            DatalogFileOpen = False
             ShieldTimeout = 32767
             tcpClient = New AsyncSocket
             ' Next 2 lines for possible later implementation, if needed
@@ -200,17 +213,42 @@ Public Class can2usb
     End Function
 
     '*****************************************************
-    '* Close COMPort
+    '* Open Datalog file
+    '*****************************************************
+    Public Function Connect(ByVal Filepath As String) As Boolean
+        If (Me.is_open) Then
+            Me.Disconnect()
+        End If
+        Try
+            dlfs = New FileStream(Filepath, FileMode.Open, FileAccess.Read)
+            dlbr = New BinaryReader(dlfs, New ASCIIEncoding())
+            DatalogFileOpen = True
+            Datasource = SourceType.DatalogFile
+            Me.is_open = True
+            'SendGetVersion()
+        Catch ex As Exception
+            DatalogFileOpen = False
+            Return (False)
+        End Try
+        Return (True)
+    End Function
+
+    '*****************************************************
+    '* Close Connection
     '*****************************************************
     Public Sub Disconnect()
         If (Me.is_open) Then
-            is_open = False
-            If UsingSerial Then
-                ComPort.Close()
-            Else
-                'sw.Close()
-                tcpClient.Close()
-            End If
+            Me.is_open = False
+            Select Case Datasource
+                Case SourceType.Serial
+                    ComPort.Close()
+                Case SourceType.TCP
+                    'sw.Close()
+                    tcpClient.Close()
+                Case SourceType.DatalogFile
+                    dlfs.Close()
+                    DatalogFileOpen = False
+            End Select
         End If
     End Sub
 
@@ -449,7 +487,7 @@ Public Class can2usb
         sw.Start()
         While (Interlocked.Read(CANMessageIDTriggerFlag) = False)
             TriggerEventCAN.WaitOne(New TimeSpan(0, 0, 1))
-            If UsingSerial AndAlso (sw.ElapsedMilliseconds > ShieldTimeout) Then
+            If (Datasource = SourceType.Serial) AndAlso (sw.ElapsedMilliseconds > ShieldTimeout) Then
 #If DBG_ID_TRIGGER_TO Then
                 Console.WriteLine("WaitForCANMessageIDTrigger(0x" & Hex(CANMessageIDTriggerID) & ") - timeout")
 #End If
@@ -482,7 +520,6 @@ Public Class can2usb
         Return (True)
     End Function
 
-
     '****************************************************************
     '* Wait for CAN Message ID Trigger ID being in the buffer
     '* returns true if triggered within timeout (Timeout)
@@ -506,7 +543,6 @@ Public Class can2usb
         Return (True)
     End Function
 
-
     '**************************************************************************
     '* Wait for 'num' messages of CAN Message ID Trigger ID being in the buffer
     '* returns true if num messages expected arrived
@@ -520,7 +556,7 @@ Public Class can2usb
         sw.Reset()
         sw.Start()
         While (getValue(CANMessageIDTriggerCounter) < num)
-            If UsingSerial AndAlso (sw.ElapsedMilliseconds > ShieldTimeout) Then
+            If (Datasource = SourceType.Serial) AndAlso (sw.ElapsedMilliseconds > ShieldTimeout) Then
 #If DBG_ID_TRIGGER_TO Then
                 Console.WriteLine("WaitForNumOfCANMessageIDTriggers(0x" & Hex(CANMessageIDTriggerID) & ") - TIMEOUT")
                 Console.WriteLine(getValue(CANMessageIDTriggerCounter) & "/" & num & " in " & sw.ElapsedMilliseconds & " ms")
@@ -529,7 +565,7 @@ Public Class can2usb
                 Interlocked.Increment(StatRXWaitForIDTimeouts)
                 Return (False)
                 'With PiCan2, if car is not powered on, this will loop forever so if no messages received print a warning
-            ElseIf Not UsingSerial AndAlso (sw.ElapsedMilliseconds > (c * 1000)) AndAlso (getValue(CANMessageIDTriggerCounter) = 0) Then
+            ElseIf Not (Datasource = SourceType.TCP) AndAlso (sw.ElapsedMilliseconds > (c * 1000)) AndAlso (getValue(CANMessageIDTriggerCounter) = 0) Then
                 Select Case MsgBox("Received " & getValue(CANMessageIDTriggerCounter) & " of " & num & " messages. Is car ignition on?", MsgBoxStyle.YesNo, "No Response")
                     Case MsgBoxResult.No
                         ' Close and Exit
@@ -548,7 +584,6 @@ Public Class can2usb
 #End If
         Return (True)
     End Function
-
 
     Private Sub PrintBuf(buf() As Byte, ByVal dbg_name As String)
         If (buf.Length = 0) Then Return
@@ -835,7 +870,7 @@ Public Class can2usb
                 Array.Resize(buf, buf_len + ser_len)     ' make space for new data in buf()                
                 ComPort.Read(buf, buf_len, ser_len)      ' append data from ComPort to buf()
                 ExtractKnownMessages(buf)                ' extract (and remove) msgs from buf()             
-                Console.WriteLine(buf.Length)
+                'Console.WriteLine(buf.Length)
                 Exit Sub
 #If DBG_RX_IN Then
                 msg_str = ""
@@ -967,7 +1002,7 @@ Public Class can2usb
                 ' append data from tcpClient to buf()
                 Array.Copy(tmp_buf, 0, buf, buf_len, ser_len)
                 ExtractKnownMessages(buf)                ' extract (and remove) msgs from buf()             
-                Console.WriteLine(buf.Length)
+                'Console.WriteLine(buf.Length)
                 Exit Sub
 #If DBG_RX_IN Then
                 msg_str = ""
@@ -1073,6 +1108,39 @@ Public Class can2usb
     End Sub
 
     '*****************************************************
+    '* Called to get data from a Datalog file
+    '* extract them and put into the CANMessages() buffer
+    '*****************************************************
+    Private Function Datalog_DataReceived() As Boolean
+        Dim msg_str As String
+        Dim s As Integer
+        Dim copy_start_idx As Integer
+        Dim cmsg As CANMessage
+        Dim buf_len As Integer
+        Dim ser_len As Integer
+        Dim tmp_buf(1024) As Byte
+
+        If DatalogFileOpen Then
+            Try
+                buf_len = buf.Length
+                tmp_buf = dlbr.ReadBytes(600)
+                ser_len = tmp_buf.Length
+                Array.Resize(buf, buf_len + ser_len)
+                Array.Copy(tmp_buf, 0, buf, buf_len, ser_len)
+                ExtractKnownMessages(buf)                ' extract (and remove) msgs from buf()             
+                'Console.WriteLine(buf.Length)
+                If (ser_len = 600) Then
+                    Return True ' there's more
+                Else
+                    Return False ' EOF
+                End If
+            Catch
+                Return False ' EOF or other error
+            End Try
+        End If
+    End Function
+
+    '*****************************************************
     '* Close TCP connection
     '*****************************************************
     Private Sub tcpClient_socketDisconnected(ByVal SocketID As String) Handles tcpClient.socketDisconnected
@@ -1087,17 +1155,20 @@ Public Class can2usb
         Dim r As Boolean = False
 
         If (is_open) Then
-            If (UsingSerial AndAlso ComPort.IsOpen) Or (Not UsingSerial AndAlso tcpClient.IsOpen) Then
+            If ((Datasource = SourceType.Serial) AndAlso ComPort.IsOpen) OrElse ((Datasource = SourceType.TCP) AndAlso tcpClient.IsOpen) Then
                 Dim query As String = "$S," & Hex(Request.len) & "," & Hex(Request.id)
                 For i As Integer = 0 To Request.len - 1
                     query &= "," & Hex(Request.data(i))
                 Next
                 query &= vbCrLf
-                If UsingSerial Then
-                    ComPort.Write(query)
-                Else
-                    tcpClient.Send(query)
-                End If
+                Select Case Datasource
+                    Case SourceType.Serial
+                        ComPort.Write(query)
+                    Case SourceType.TCP
+                        tcpClient.Send(query)
+                    Case SourceType.DatalogFile
+                        ' Not implemented
+                End Select
                 'Console.WriteLine("SendCANMessage() = " & query)
                 r = True
             End If
@@ -1107,31 +1178,42 @@ Public Class can2usb
 
     '*****************************************************
     '* Send CAN request and wait for reply (blocking)
+    '* This is the function called by the CAN 0x80 poller
     '*****************************************************
     Public Function SendAndWaitForCANMessageID(ByVal Request As CANMessage, ByVal CANTriggerID As Integer) As Boolean
         Dim r As Boolean = False
 
         If (is_open) Then
-            If (UsingSerial AndAlso ComPort.IsOpen) Or (Not UsingSerial AndAlso tcpClient.IsOpen) Then
-                If (UsingSerial AndAlso ComPort.BytesToWrite = 0) Or Not UsingSerial Then
-                    'ComPort.ReadExisting()
-                    ResetCANMessages()
-                    SetCANMessageIDTriggerID(CANTriggerID)
-                    ResetCANMessageIDTrigger()
-                    Dim query As String = "$S," & Hex(Request.len) & "," & Hex(Request.id)
-                    For i As Integer = 0 To Request.len - 1
-                        query &= "," & Hex(Request.data(i))
-                    Next
-                    query &= vbCrLf
-                    'Console.WriteLine("SendAndWaitForCANMessageID()" & query)
-                    If UsingSerial Then
+            If ((Datasource = SourceType.Serial) AndAlso ComPort.IsOpen AndAlso (ComPort.BytesToWrite = 0)) OrElse
+               ((Datasource = SourceType.TCP) AndAlso tcpClient.IsOpen) OrElse
+               ((Datasource = SourceType.DatalogFile) AndAlso DatalogFileOpen) Then
+                'ComPort.ReadExisting()
+                ResetCANMessages()
+                SetCANMessageIDTriggerID(CANTriggerID)
+                ResetCANMessageIDTrigger()
+                Dim query As String = "$S," & Hex(Request.len) & "," & Hex(Request.id)
+                For i As Integer = 0 To Request.len - 1
+                    query &= "," & Hex(Request.data(i))
+                Next
+                query &= vbCrLf
+                'Console.WriteLine("SendAndWaitForCANMessageID()" & query)
+                Select Case Datasource
+                    Case SourceType.Serial
                         ComPort.Write(query)
                         r = WaitForCANMessageIDTrigger()
-                    Else
+                    Case SourceType.TCP
                         tcpClient.Send(query)
                         r = WaitForCANMessageIDTrigger(1000)
-                    End If
-                End If
+                    Case SourceType.DatalogFile ' This Case should not get run because the overloaded Function should be used instead
+                        r = is_open
+                        While r AndAlso (Interlocked.Read(CANMessageIDTriggerFlag) = False)
+                            r = Datalog_DataReceived()
+                            Thread.Sleep(100)
+                        End While
+                        If (Not r) Then
+                            Disconnect()
+                        End If
+                End Select
             End If
         End If
 
@@ -1145,9 +1227,8 @@ Public Class can2usb
         Dim r As Boolean = False
 
         If (is_open) Then
-            If (UsingSerial AndAlso ComPort.IsOpen) Or (Not UsingSerial AndAlso tcpClient.IsOpen) Then
-                If (UsingSerial AndAlso ComPort.BytesToWrite = 0) Or Not UsingSerial Then
-                    'ComPort.ReadExisting()
+            If ((Datasource = SourceType.Serial) AndAlso ComPort.IsOpen) OrElse ((Datasource = SourceType.TCP) AndAlso tcpClient.IsOpen) Then
+                If ((Datasource = SourceType.Serial) AndAlso ComPort.BytesToWrite = 0) OrElse (Datasource = SourceType.TCP) Then
                     If (DoReset) Then
                         ResetCANMessages()
                         SetCANMessageIDTriggerID(CANTriggerID)
@@ -1169,7 +1250,9 @@ Public Class can2usb
         Dim r As Boolean = False
 
         If (is_open) Then
-            If (UsingSerial AndAlso ComPort.IsOpen) Or (Not UsingSerial AndAlso tcpClient.IsOpen) Then
+            If ((Datasource = SourceType.Serial) AndAlso ComPort.IsOpen AndAlso (ComPort.BytesToWrite = 0)) OrElse
+               ((Datasource = SourceType.TCP) AndAlso tcpClient.IsOpen) OrElse
+               ((Datasource = SourceType.DatalogFile) AndAlso DatalogFileOpen) Then
                 'ComPort.ReadExisting()
                 ResetCANMessages()
                 SetCANMessageIDTriggerID(CANTriggerID)
@@ -1179,15 +1262,27 @@ Public Class can2usb
                     query &= "," & Hex(Request.data(i))
                 Next
                 query &= vbCrLf
-                If UsingSerial Then
-                    ComPort.Write(query)
-                Else
-                    tcpClient.Send(query)
-                End If
-                'Console.WriteLine("SendAndWaitForCANMessageID() " & query)
-                r = WaitForCANMessageIDTrigger(Timeout)
+                'Console.WriteLine("SendAndWaitForCANMessageID()" & query)
+                Select Case Datasource
+                    Case SourceType.Serial
+                        ComPort.Write(query)
+                        r = WaitForCANMessageIDTrigger(Timeout)
+                    Case SourceType.TCP
+                        tcpClient.Send(query)
+                        r = WaitForCANMessageIDTrigger(Timeout)
+                    Case SourceType.DatalogFile
+                        r = is_open
+                        While r AndAlso (Interlocked.Read(CANMessageIDTriggerFlag) = False)
+                            r = Datalog_DataReceived()
+                            Thread.Sleep(Timeout) ' Timeout is really the amount of time to pause based upon the speed meter
+                        End While
+                        If (Not r) Then
+                            Disconnect()
+                        End If
+                End Select
             End If
         End If
+
         Return (r)
     End Function
 
@@ -1199,7 +1294,7 @@ Public Class can2usb
         Dim r As Boolean = False
 
         If (is_open) Then
-            If (UsingSerial AndAlso ComPort.IsOpen) Or (Not UsingSerial AndAlso tcpClient.IsOpen) Then
+            If ((Datasource = SourceType.Serial) AndAlso ComPort.IsOpen) OrElse ((Datasource = SourceType.TCP) AndAlso tcpClient.IsOpen) Then
                 'ComPort.ReadExisting()
                 ResetCANMessages()
                 SetCANMessageIDTriggerID(CANTriggerID)
@@ -1209,11 +1304,14 @@ Public Class can2usb
                     query &= "," & Hex(Request.data(i))
                 Next
                 query &= vbCrLf
-                If UsingSerial Then
-                    ComPort.Write(query)
-                Else
-                    tcpClient.Send(query)
-                End If
+                Select Case Datasource
+                    Case SourceType.Serial
+                        ComPort.Write(query)
+                    Case SourceType.TCP
+                        tcpClient.Send(query)
+                    Case SourceType.DatalogFile
+                        ' Not implemented
+                End Select
                 r = WaitForNumOfCANMessageIDTriggers(num)
             End If
         End If
@@ -1547,12 +1645,18 @@ Public Class can2usb
     '*****************************************************
     Public Sub SendGetVersion()
         Dim query As String = "$VER" & vbCrLf
-        If (UsingSerial AndAlso ComPort.IsOpen) Then
-            ComPort.Write(query)
-        End If
-        If (Not UsingSerial AndAlso tcpClient.IsOpen) Then
-            tcpClient.Send(query)
-        End If
+        Select Case Datasource
+            Case SourceType.Serial
+                If ComPort.IsOpen Then
+                    ComPort.Write(query)
+                End If
+            Case SourceType.TCP
+                If tcpClient.IsOpen Then
+                    tcpClient.Send(query)
+                End If
+            Case SourceType.DatalogFile
+                ' Not implemented
+        End Select
     End Sub
 
     '*****************************************************
@@ -1560,7 +1664,7 @@ Public Class can2usb
     '*****************************************************
     Public Sub SendKLINEInit()
         Dim query As String = "$KSI" & vbCrLf
-        If (UsingSerial AndAlso ComPort.IsOpen) Then
+        If ((Datasource = SourceType.Serial) AndAlso ComPort.IsOpen) Then
             ComPort.Write(query)
         End If
     End Sub
@@ -1569,16 +1673,19 @@ Public Class can2usb
     '* Initialize adapter
     '*****************************************************
     Public Function Init(ByVal speed As Integer, ByVal shield As Integer) As Boolean
-        If (UsingSerial AndAlso ComPort.IsOpen) Or (Not UsingSerial AndAlso tcpClient.IsOpen) Then
+        If ((Datasource = SourceType.Serial) AndAlso ComPort.IsOpen) OrElse ((Datasource = SourceType.TCP) AndAlso tcpClient.IsOpen) Then
             ' check for valid CAN Speeds        
             If ((speed = 125) Or (speed = 250) Or (speed = 500) Or (speed = 1000)) Then
                 Dim query As String = ""
                 query = "$I," & speed & "," & shield & vbCrLf
-                If UsingSerial Then
-                    ComPort.Write(query)
-                Else
-                    tcpClient.Send(query)
-                End If
+                Select Case Datasource
+                    Case SourceType.Serial
+                        ComPort.Write(query)
+                    Case SourceType.TCP
+                        tcpClient.Send(query)
+                    Case SourceType.DatalogFile
+                        ' Not implemented
+                End Select
                 Return (True)
             End If
         End If
@@ -1590,7 +1697,7 @@ Public Class can2usb
     '* Trigger K-Line Stage2 Bootloader catch routine
     '*****************************************************
     Public Function KLineCatchStage2() As Boolean
-        If (UsingSerial AndAlso ComPort.IsOpen) Then
+        If ((Datasource = SourceType.Serial) AndAlso ComPort.IsOpen) Then
             Dim query As String = ""
             query = "$B2" & vbCrLf
             ComPort.Write(query)
@@ -1616,7 +1723,7 @@ Public Class can2usb
         End If
 
         If (is_open) Then
-            If (UsingSerial AndAlso ComPort.IsOpen) Then
+            If ((Datasource = SourceType.Serial) AndAlso ComPort.IsOpen) Then
                 Dim query As String = "$KO," & Hex(Request.len + 1)
                 For i As Integer = 0 To Request.len - 1
                     query &= "," & Hex(Request.data(i))
@@ -1662,5 +1769,3 @@ Public Class can2usb
         End Select
     End Sub
 End Class
-
-
