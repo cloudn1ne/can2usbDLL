@@ -43,7 +43,7 @@ Public Class can2usb
     Private START_PATTERN_KLINERX() As Byte = System.Text.Encoding.ASCII.GetBytes("$KO")
     Private START_PATTERN_KLINEINIT() As Byte = System.Text.Encoding.ASCII.GetBytes("$KSI,")
     Private START_PATTERN_ERROR() As Byte = System.Text.Encoding.ASCII.GetBytes("$E,")
-    Private START_PATTERN_TIMESTAMP() As Byte = System.Text.Encoding.ASCII.GetBytes("$T,")
+    Private START_PATTERN_TIMESTAMP() As Byte = System.Text.Encoding.ASCII.GetBytes("$T")
     Private END_PATTERN() As Byte = {&HD, &HA} ' = \r\n
     Private START_PATTERN_KLINE_OBD_MULTIFRAME() As Byte = {&H48, &H6B, &H10, &H49, &H2}
 
@@ -85,6 +85,7 @@ Public Class can2usb
     ' $T handling
     Private lastTread As Long = 0
     Private lastTreadTime As Long = 0
+    Private Const epochstart As Date = #1/1/1970 0:0:0#
 
     ' $E handling
     Private error_code As Integer = 0
@@ -220,6 +221,10 @@ Public Class can2usb
             Me.Disconnect()
         End If
         Try
+            'fs = New FileStream("filelog.txt", FileMode.Create)
+            'sw = New StreamWriter(fs)
+            'sw.AutoFlush = True
+            'Console.SetOut(sw)
             dlfs = New FileStream(Filepath, FileMode.Open, FileAccess.Read)
             dlbr = New BinaryReader(dlfs, New ASCIIEncoding())
             DatalogFileOpen = True
@@ -246,6 +251,7 @@ Public Class can2usb
                     'sw.Close()
                     tcpClient.Close()
                 Case SourceType.DatalogFile
+                    'sw.Close()
                     dlfs.Close()
                     DatalogFileOpen = False
             End Select
@@ -598,9 +604,9 @@ Public Class can2usb
                 End If
 
             Next
-            Console.WriteLine(dbg_name & "(" & buf.Length & "): " & msg_str & "")
+            'Console.WriteLine(dbg_name & "(" & buf.Length & "): " & msg_str & "")
         Else
-            Console.WriteLine(dbg_name & " buf() was empty")
+            'Console.WriteLine(dbg_name & " buf() was empty")
         End If
     End Sub
 
@@ -668,6 +674,8 @@ Public Class can2usb
 
     Private Sub ExtractKnownMessages(ByRef buf)
         Dim s As Integer = 0
+        Dim z As Integer
+        Dim d As Boolean = True
         Dim msg() As Byte = Nothing
         Dim crc As Integer = 0
         Dim stringSeparators() As String = {","}
@@ -696,20 +704,37 @@ Public Class can2usb
         '* Extract $T (Timestamp) (Rasp)
         '************************************************
         s = SearchBytePattern(START_PATTERN_TIMESTAMP, buf, 0)
-        While (s > -1)
-            msg = ExtractMessage(buf, s)
-            If (msg IsNot Nothing) Then
-                Try
-                    Dim ar() As String = System.Text.Encoding.ASCII.GetString(msg).Split(stringSeparators, StringSplitOptions.None)
-                    lastTread = ar(1)
-                    lastTreadTime = Date.Now.Ticks
-                Catch ex As Exception
-                    lastTread = 0
-                    lastTreadTime = 0
-                End Try
-            End If
-            s = SearchBytePattern(START_PATTERN_TIMESTAMP, buf, s)
-        End While
+        'While (s > -1)
+        If s > -1 Then
+            Try
+                'msg = ExtractMessage(buf, s)
+                Array.Resize(msg, 13)
+                Array.Copy(buf, s + 2, msg, 0, 13)
+                'make sure all of msg are ASCII digits otherwise it's a $T within a $F or $K and we should ignore
+                For z = 0 To 12
+                    If (msg(z) > Asc("9")) OrElse (msg(z) < Asc("0")) Then
+                        d = False
+                        Exit For
+                    End If
+                Next
+                If d AndAlso (msg IsNot Nothing) Then
+                    Try
+                        'Dim ar() As String = System.Text.Encoding.ASCII.GetString(msg).Split(stringSeparators, StringSplitOptions.None)
+                        lastTread = CLng(System.Text.Encoding.ASCII.GetString(msg))
+                        lastTreadTime = Date.Now.Ticks
+                    Catch ex2 As Exception
+                        lastTread = 0
+                        lastTreadTime = 0
+                        MsgBox("$T(CLng):  " & ex2.Message & vbCrLf & ex2.StackTrace)
+                    End Try
+                    buf = New Byte() {}
+                End If
+                's = SearchBytePattern(START_PATTERN_TIMESTAMP, buf, s)
+                'End While
+            Catch ex As Exception
+                MsgBox("$T(general):  " & ex.Message & vbCrLf & ex.StackTrace)
+            End Try
+        End If
 
         '************************************************
         '* Extract $KSI (K-LINE Slow Init)
@@ -827,17 +852,28 @@ Public Class can2usb
                 If (lastTread > 0) AndAlso ((Date.Now.Ticks - lastTreadTime) < 5 * 10 * 1000 * 1000) Then
                     cmsg.timestamp = lastTread
                 Else
-                    Dim epochstart As Date = #1/1/1970 0:0:0#
                     cmsg.timestamp = (Date.Now.Ticks - epochstart.Ticks) / 10000
                 End If
+#If DBG_RX_VALID Then
+                Dim i As Integer
+                Dim msg_str As String = ""
+                Dim timestamp2 = New DateTime(cmsg.timestamp * 10000 + epochstart.Ticks)
+                For i = 0 To cmsg.len - 1
+                    msg_str &= String.Format("{0:X2}", cmsg.data(i)) & " "
+                Next
+                Console.Write("valid_msg(0x" & Hex(cmsg.id) & "/" & cmsg.len & ") " & msg_str & "@ " & timestamp2.Ticks & timestamp2.ToString(" (MM/dd/yyyy HH:mm:ss)"))
+#End If
                 AddCANMessage(cmsg) ' message decoded fine, store for later use
+#If DBG_RX_VALID Then
+                Console.WriteLine("...msg_added!")
+#End If
                 If (cmsg.id = Interlocked.Read(CANMessageIDTriggerID)) Then ' probe trigger id and set flag if matched 
-                        Interlocked.Exchange(CANMessageIDTriggerFlag, True)
-                        incValue(CANMessageIDTriggerCounter)
-                        TriggerEventCAN.Set()
-                    End If
-                Else ' there was an error extracting the CAN message
-                    If (cmsg.id < 0) Then
+                    Interlocked.Exchange(CANMessageIDTriggerFlag, True)
+                    incValue(CANMessageIDTriggerCounter)
+                    TriggerEventCAN.Set()
+                End If
+            Else ' there was an error extracting the CAN message
+                If (cmsg.id < 0) Then
                     If (cmsg.id = -4) Then  ' CRC Error
                         Interlocked.Increment(StatRXCRCErrors)
                     End If
@@ -1112,29 +1148,30 @@ Public Class can2usb
     '* extract them and put into the CANMessages() buffer
     '*****************************************************
     Private Function Datalog_DataReceived() As Boolean
+        Const buffersize = 15
         Dim msg_str As String
         Dim s As Integer
         Dim copy_start_idx As Integer
         Dim cmsg As CANMessage
         Dim buf_len As Integer
         Dim ser_len As Integer
-        Dim tmp_buf(1024) As Byte
+        Dim tmp_buf(buffersize) As Byte
 
         If DatalogFileOpen Then
             Try
                 buf_len = buf.Length
-                tmp_buf = dlbr.ReadBytes(600)
+                tmp_buf = dlbr.ReadBytes(buffersize)
                 ser_len = tmp_buf.Length
                 Array.Resize(buf, buf_len + ser_len)
                 Array.Copy(tmp_buf, 0, buf, buf_len, ser_len)
                 ExtractKnownMessages(buf)                ' extract (and remove) msgs from buf()             
-                'Console.WriteLine(buf.Length)
-                If (ser_len = 600) Then
+                If (ser_len = buffersize) Then
                     Return True ' there's more
                 Else
                     Return False ' EOF
                 End If
-            Catch
+            Catch ex As Exception
+                MsgBox("Datalog_DataReceived() error")
                 Return False ' EOF or other error
             End Try
         End If
@@ -1204,15 +1241,15 @@ Public Class can2usb
                     Case SourceType.TCP
                         tcpClient.Send(query)
                         r = WaitForCANMessageIDTrigger(1000)
-                    Case SourceType.DatalogFile ' This Case should not get run because the overloaded Function should be used instead
+                    Case SourceType.DatalogFile ' This Case should only get run once when looking for the 0x400 that signals the CAN80MaxID
                         r = is_open
                         While r AndAlso (Interlocked.Read(CANMessageIDTriggerFlag) = False)
                             r = Datalog_DataReceived()
-                            Thread.Sleep(100)
                         End While
                         If (Not r) Then
                             Disconnect()
                         End If
+                        'Thread.Sleep(100)
                 End Select
             End If
         End If
@@ -1274,11 +1311,11 @@ Public Class can2usb
                         r = is_open
                         While r AndAlso (Interlocked.Read(CANMessageIDTriggerFlag) = False)
                             r = Datalog_DataReceived()
-                            Thread.Sleep(Timeout) ' Timeout is really the amount of time to pause based upon the speed meter
                         End While
                         If (Not r) Then
                             Disconnect()
                         End If
+                        Thread.Sleep(Timeout) ' Timeout is really the amount of time to pause based upon the speed meter
                 End Select
             End If
         End If
@@ -1307,12 +1344,19 @@ Public Class can2usb
                 Select Case Datasource
                     Case SourceType.Serial
                         ComPort.Write(query)
+                        r = WaitForNumOfCANMessageIDTriggers(num)
                     Case SourceType.TCP
                         tcpClient.Send(query)
+                        r = WaitForNumOfCANMessageIDTriggers(num)
                     Case SourceType.DatalogFile
-                        ' Not implemented
+                        r = is_open
+                        For i = 0 To num ' get $T and num messages
+                            r = Datalog_DataReceived()
+                        Next
+                        If (Not r) Then
+                            Disconnect()
+                        End If
                 End Select
-                r = WaitForNumOfCANMessageIDTriggers(num)
             End If
         End If
         Return (r)
@@ -1387,7 +1431,7 @@ Public Class can2usb
         Else
             ' check CRC
             If (buf(start + START_PATTERN_CANRX.Length + 2 + cmsg.len) <> (crc And &HFF)) Then
-                Console.WriteLine("ExtractCANMessage not matching expected calced=0x" & Hex(crc And &HFF) & " expected=0x" & Hex(buf(start + START_PATTERN_CANRX.Length + 2 + cmsg.len)))
+                'Console.WriteLine("ExtractCANMessage not matching expected calced=0x" & Hex(crc And &HFF) & " expected=0x" & Hex(buf(start + START_PATTERN_CANRX.Length + 2 + cmsg.len)))
                 cmsg.id = -4
                 start = -1
 #If DBG_EXTRACT_CAN Then
@@ -1404,38 +1448,53 @@ Public Class can2usb
         '''''''''''''''''''''''''''''''''''''''''''
         ' truncate buf()
         '''''''''''''''''''''''''''''''''''''''''''
-        Dim str_end, str_start
-        Dim buf_copy() As Byte = {}
-        str_start = start
-        str_end = start + 4 + cmsg.len + 1      ' $,F,len,id,crc + data
-        Dim buf_len = buf.Length
-        ' make a working copy of buf()
-        Array.Resize(buf_copy, buf_len)
-        Array.Copy(buf, buf_copy, buf_len)
-        ' empty original buf()            
-        buf = New Byte() {}
-        Dim new_buf_size = buf_len - (str_end - str_start + END_PATTERN.Length)     ' remainder buf len (after msg is extracted)
+        Try
+            Dim str_end, str_start
+            Dim buf_copy() As Byte = {}
+            str_start = start
+            str_end = start + 4 + cmsg.len + 1      ' $,F,len,id,crc + data
+            Dim buf_len = buf.Length
+            ' make a working copy of buf()
+            Array.Resize(buf_copy, buf_len)
+            Array.Copy(buf, buf_copy, buf_len)
+            Dim zero_padded As Boolean = DatalogFileOpen
+            If DatalogFileOpen AndAlso ((str_end + END_PATTERN.Length) < buf_len) Then
+                For i = str_end + END_PATTERN.Length To buf_len - 1
+                    If buf(i) <> 0 Then
+                        zero_padded = False
+                        Exit For
+                    End If
+                Next
+            Else
+                zero_padded = False
+            End If
+            ' empty original buf()            
+            buf = New Byte() {}
+            Dim new_buf_size = buf_len - (str_end - str_start + END_PATTERN.Length)     ' remainder buf len (after msg is extracted)
 #If DBG_EXTRACT_CAN Then
         Console.WriteLine("Remainder Size: " & new_buf_size)
 #End If
-        If (new_buf_size > 0) Then
-            Array.Resize(buf, new_buf_size)
-            If (str_start > 0) Then                                               ' restore leading buf()
+            If (Not zero_padded) AndAlso (new_buf_size > 0) Then
+                Array.Resize(buf, new_buf_size)
+                If (str_start > 0) Then                                               ' restore leading buf()
 #If DBG_EXTRACT_CAN Then
                 Console.WriteLine("Leading (0-" & str_start & ")")
 #End If
-                Array.Copy(buf_copy, buf, str_start)
-            End If
-            If (str_end < (buf_len - END_PATTERN.Length)) Then                   ' restore trailing buf()
+                    Array.Copy(buf_copy, buf, str_start)
+                End If
+                If (str_end < (buf_len - END_PATTERN.Length)) Then                   ' restore trailing buf()
 #If DBG_EXTRACT_CAN Then
                 Console.WriteLine("Trailing (" & str_end + END_PATTERN.Length & "-" & str_end + END_PATTERN.Length + buf_copy.Length - (str_end + END_PATTERN.Length) & ")")
 #End If
-                Array.Copy(buf_copy, str_end + END_PATTERN.Length, buf, str_start, buf_len - (str_end + END_PATTERN.Length)) ' add trailing part 
-            End If
+                    Array.Copy(buf_copy, str_end + END_PATTERN.Length, buf, str_start, buf_len - (str_end + END_PATTERN.Length)) ' add trailing part 
+                End If
 #If DBG_EXTRACT_CAN Then
             PrintBuf(buf, "ExtractCANMessage_REMAINDER")
 #End If
-        End If
+            End If
+        Catch ex As Exception
+            MsgBox("ExtractCANMessage(truncation):  " & ex.Message & vbCrLf & ex.StackTrace & vbCrLf & ex.Source)
+        End Try
         Return (cmsg)
     End Function
 
