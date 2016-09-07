@@ -674,8 +674,6 @@ Public Class can2usb
 
     Private Sub ExtractKnownMessages(ByRef buf)
         Dim s As Integer = 0
-        Dim z As Integer
-        Dim d As Boolean = True
         Dim msg() As Byte = Nothing
         Dim crc As Integer = 0
         Dim stringSeparators() As String = {","}
@@ -703,37 +701,33 @@ Public Class can2usb
         '************************************************
         '* Extract $T (Timestamp) (Rasp)
         '************************************************
-        s = SearchBytePattern(START_PATTERN_TIMESTAMP, buf, 0)
-        'While (s > -1)
-        If s > -1 Then
-            Try
-                'msg = ExtractMessage(buf, s)
-                Array.Resize(msg, 13)
-                Array.Copy(buf, s + 2, msg, 0, 13)
-                'make sure all of msg are ASCII digits otherwise it's a $T within a $F or $K and we should ignore
-                For z = 0 To 12
-                    If (msg(z) > Asc("9")) OrElse (msg(z) < Asc("0")) Then
-                        d = False
-                        Exit For
+        If DatalogFileOpen Then
+            s = SearchBytePattern(START_PATTERN_TIMESTAMP, buf, 0)
+            'While (s > -1)
+            If s > -1 Then
+                Try
+                    'msg = ExtractMessage(buf, s)
+                    Array.Resize(msg, 13)
+                    Array.Copy(buf, s + 2, msg, 0, 13)
+                    'make sure all of msg are ASCII digits otherwise it's a $T within a $F or $K and we should ignore
+                    If msg IsNot Nothing Then
+                        Try
+                            'Dim ar() As String = System.Text.Encoding.ASCII.GetString(msg).Split(stringSeparators, StringSplitOptions.None)
+                            lastTread = CLng(System.Text.Encoding.ASCII.GetString(msg))
+                            lastTreadTime = Date.Now.Ticks
+                        Catch ex2 As Exception
+                            lastTread = 0
+                            lastTreadTime = 0
+                            MsgBox("$T(CLng):  " & ex2.Message & vbCrLf & ex2.StackTrace)
+                        End Try
+                        buf = New Byte() {}
                     End If
-                Next
-                If d AndAlso (msg IsNot Nothing) Then
-                    Try
-                        'Dim ar() As String = System.Text.Encoding.ASCII.GetString(msg).Split(stringSeparators, StringSplitOptions.None)
-                        lastTread = CLng(System.Text.Encoding.ASCII.GetString(msg))
-                        lastTreadTime = Date.Now.Ticks
-                    Catch ex2 As Exception
-                        lastTread = 0
-                        lastTreadTime = 0
-                        MsgBox("$T(CLng):  " & ex2.Message & vbCrLf & ex2.StackTrace)
-                    End Try
-                    buf = New Byte() {}
-                End If
-                's = SearchBytePattern(START_PATTERN_TIMESTAMP, buf, s)
-                'End While
-            Catch ex As Exception
-                MsgBox("$T(general):  " & ex.Message & vbCrLf & ex.StackTrace)
-            End Try
+                    's = SearchBytePattern(START_PATTERN_TIMESTAMP, buf, s)
+                    'End While
+                Catch ex As Exception
+                    MsgBox("$T(general):  " & ex.Message & vbCrLf & ex.StackTrace)
+                End Try
+            End If
         End If
 
         '************************************************
