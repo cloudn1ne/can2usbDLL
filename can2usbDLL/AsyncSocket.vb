@@ -15,10 +15,17 @@
 'program; if not, write to the Free Software Foundation, Inc., 59 Temple Place, 
 'Suite 330, Boston, MA 02111-1307 USA
 
+' Uncommenting next line will allow auto connect to be turned off in the registry, avoiding error on next start
+'#Const REG_KEY_MOD = 1
+
 Imports System
 Imports System.Text
 Imports System.Net
 Imports System.Net.Sockets
+#If REG_KEY_MOD Then
+Imports System.IO
+Imports Microsoft.Win32
+#End If
 
 Public Class StateObject
 
@@ -73,18 +80,33 @@ Public Class AsyncSocket
 
         Catch ex As Exception
 
-            If InStr(ex.Message, "actively refused", CompareMethod.Text) > 0 Then
-                Select Case MsgBox("canserver not running.  Try again?", MsgBoxStyle.YesNo, "Connection Refused")
-                    Case MsgBoxResult.No
-                        ' Exit
-                        Environment.Exit(0)
-                    Case MsgBoxResult.Yes
-                        ' Try again
-                        Connect(hostIP, hostPort)
-                End Select
-            Else
-                MsgBox("AsyncSocket:  Connect() error " & ex.Message)
+            Dim emsg As String = "Error"
+            Dim tmsg As String = "Connection Error"
+            If InStr(ex.Message, "did not properly respond", CompareMethod.Text) > 0 Then
+                emsg = "IP address likely incorrect"
+                tmsg = "Connection Failed"
             End If
+            If InStr(ex.Message, "actively refused", CompareMethod.Text) > 0 Then
+                emsg = "canserver not running"
+                tmsg = "Connection Refused"
+            End If
+            Select Case MsgBox(emsg & ".  Cancel, try again, or ignore?", MsgBoxStyle.AbortRetryIgnore, tmsg)
+                Case MsgBoxResult.Abort
+                    ' Exit
+                    Environment.Exit(0)
+                Case MsgBoxResult.Retry
+                    ' Try again
+                    Connect(hostIP, hostPort)
+                Case MsgBoxResult.Ignore
+                    ' Ignore
+#If REG_KEY_MOD Then
+                        Dim appname As String = Path.GetFileName(System.Reflection.Assembly.GetEntryAssembly().Location)
+                        Using Key As RegistryKey = My.Computer.Registry.CurrentUser.OpenSubKey("SOFTWARE\" & My.Application.Info.CompanyName & "\" & Left(appname, InStr(appname, ".") - 1), True)
+                            Key.SetValue("ECUAutoConnect", False)
+                        End Using
+#End If
+            End Select
+
         End Try
 
     End Sub
